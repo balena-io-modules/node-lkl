@@ -1,0 +1,39 @@
+#include "zsyscall.h"
+#include "node_lkl.h"
+
+NAN_MODULE_INIT(InitAll) {
+	NAN_EXPORT(target, mount);
+	NAN_EXPORT(target, umount);
+	NAN_EXPORT(target, chdir);
+	NAN_EXPORT(target, chroot);
+	NAN_EXPORT(target, close);
+	NAN_EXPORT(target, fchdir);
+	NAN_EXPORT(target, fchmod);
+	NAN_EXPORT(target, fchownat);
+	NAN_EXPORT(target, fchown);
+	NAN_EXPORT(target, fcntl);
+	NAN_EXPORT(target, fdatasync);
+	NAN_EXPORT(target, fsync);
+	NAN_EXPORT(target, getcwd);
+	NAN_EXPORT(target, getdents);
+	NAN_EXPORT(target, getxattr);
+	NAN_EXPORT(target, lchown);
+	NAN_EXPORT(target, linkat);
+	NAN_EXPORT(target, listxattr);
+	NAN_EXPORT(target, mkdirat);
+	NAN_EXPORT(target, mknodat);
+	NAN_EXPORT(target, openat);
+	NAN_EXPORT(target, pread64);
+	NAN_EXPORT(target, pwrite64);
+	NAN_EXPORT(target, read);
+	NAN_EXPORT(target, readlinkat);
+	NAN_EXPORT(target, removexattr);
+	NAN_EXPORT(target, renameat2);
+	NAN_EXPORT(target, setxattr);
+	NAN_EXPORT(target, symlinkat);
+	NAN_EXPORT(target, truncate);
+	NAN_EXPORT(target, unlinkat);
+	NAN_EXPORT(target, write);
+}
+
+NODE_MODULE(bindings, InitAll)

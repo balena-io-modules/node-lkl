@@ -1,0 +1,60 @@
+extern "C" {
+	#include <lkl.h>
+	#include <lkl_host.h>
+}
+
+#include "zsyscall.h"
+
+{{#each syscalls}}
+// MACHINE GENERATED; DO NOT EDIT
+
+NAN_METHOD({{name}}) {
+	if (info.Length() < {{inp.length}}) {
+		Nan::ThrowTypeError("Wrong number of arguments");
+		return;
+	}
+
+	{{#indent "	"}}
+		{{#each inp}}
+			{{#switch type}}
+				{{#case "int"}}
+					int {{name}} = info[{{@index}}]->Uint32Value();
+				{{/case}}
+				{{#case "int64"}}
+					int {{name}} = info[{{@index}}]->Uint32Value();
+				{{/case}}
+				{{#case "uint32"}}
+					uint {{name}} = info[{{@index}}]->Uint32Value();
+				{{/case}}
+				{{#case "string"}}
+					Nan::Utf8String {{name}}(info[{{@index}}]);
+				{{/case}}
+				{{#case "[]byte"}}
+					void *{{name}} = node::Buffer::Data(info[{{@index}}]->ToObject());
+					int {{name}}_len = node::Buffer::Length(info[{{@index}}]->ToObject());
+				{{/case}}
+			{{/switch}}
+		{{/each}}
+	{{/indent}}
+
+	long ret = lkl_sys_{{name}}(
+		{{~#each inp~}}
+			{{~#switch type~}}
+				{{~#case "int"~}}{{name}}{{/case}}
+				{{~#case "int64"~}}{{name}}{{/case}}
+				{{~#case "uint32"~}}{{name}}{{/case}}
+				{{~#case "string"~}}*{{name}}{{/case}}
+				{{~#case "[]byte"~}}{{name}}, {{name}}_len{{/case}}
+			{{~/switch~}}
+			{{~#unless @last~}}, {{/unless}}
+		{{~/each~}}
+	);
+
+	if (ret < 0) {
+		Nan::ThrowError(Nan::ErrnoException(-ret));
+	} else {
+		info.GetReturnValue().Set(Nan::New<v8::Number>(ret));
+	}
+}
+
+{{/each}}
