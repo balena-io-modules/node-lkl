@@ -6,12 +6,27 @@
 				"src/bindings.cc",
 				"src/node_lkl.cc"
 			],
+			'actions': [
+				{
+					'action_name': "lkl_make",
+					'inputs': [
+						"src/linux/**"
+					],
+					'outputs': [
+						"src/linux/tools/lkl/liblkl.a"
+					],
+					'action': [ 'make', '-j4', '-C', 'src/linux/tools/lkl', 'static' ],
+					'message': 'Compiling LKL kernel..'
+				}
+			],
+			"cflags_cc": [ '-fpermissive', '-Wno-pointer-arith' ],
+			"defines": [ "CONFIG_AUTO_LKL_POSIX_HOST" ],
 			"libraries": [
-				"/home/petrosagg/projects/linux/tools/lkl/lib/liblkl.so"
+				"../src/linux/tools/lkl/liblkl.a"
 			],
 			"include_dirs": [
 				"<!(node -e \"require('nan')\")",
-				"/home/petrosagg/projects/linux/tools/lkl/include"
+				"src/linux/tools/lkl/include"
 			]
 		}
 	]
