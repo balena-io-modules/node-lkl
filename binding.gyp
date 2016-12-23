@@ -4,6 +4,7 @@
 			"target_name": "bindings",
 			"sources": [
 				"src/bindings.cc",
+				"src/syscall.cc",
 				"src/node_lkl.cc"
 			],
 			'actions': [
