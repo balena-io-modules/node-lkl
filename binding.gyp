@@ -3,9 +3,8 @@
 		{
 			"target_name": "bindings",
 			"sources": [
-				"src/zbindings.cc",
-				"src/zsyscall.cc",
-				"src/node_lkl.cc"
+				"src/node_lkl.cc",
+				"src/bindings.cc"
 			],
 			'actions': [
 				{

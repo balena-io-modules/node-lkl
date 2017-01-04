@@ -6,7 +6,6 @@
     "test": "mocha"
   },
   "devDependencies": {
-    "handlebars": "^4.0.6",
     "mocha": "^2.2.5",
     "nan": "^2.0.5",
     "node-gyp": "^1.0.3"
