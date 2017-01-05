@@ -15,6 +15,10 @@ Some things you can do with this module:
 
 Check the [How it works] section to learn how it works.
 
+**Warning: The API exposed by this library is still forming and can change at
+any time.  Also, some methods do blocking I/O on the main thread (e.g
+`lkl.mount()`). This will change in the future**
+
 Installation
 ------------
 
