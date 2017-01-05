@@ -13,7 +13,7 @@ Some things you can do with this module:
 * Combine lkl filesystem streams with host filesystem streams (e.g copy files)
 * Create a tar archive from a filesystem image
 
-Check the [How it works] section to learn how it works.
+Check the [How it works](#how-it-works) section to learn how it works.
 
 **Warning: The API exposed by this library is still forming and can change at
 any time.  Also, some methods do blocking I/O on the main thread (e.g
