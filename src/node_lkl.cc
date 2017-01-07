@@ -5,38 +5,66 @@ extern "C" {
 
 #include "node_lkl.h"
 
-#define LKL_MEMORY 100 * 1024 * 1024
-
-unsigned int disk_id;
-
-NAN_METHOD(mount) {
-	bool ro;
-	char mpoint[32];
-	struct lkl_disk disk;
-	long ret;
-
-	if (info.Length() < 2) {
+NAN_METHOD(startKernel) {
+	if (info.Length() != 1) {
 		Nan::ThrowTypeError("Wrong number of arguments");
 		return;
 	}
 
 	lkl_host_ops.print = NULL;
+	int memory = info[0]->Uint32Value();
+	lkl_start_kernel(&lkl_host_ops, memory, "");
+}
+
+NAN_METHOD(haltKernel) {
+	lkl_sys_halt();
+}
+
+NAN_METHOD(mount) {
+	bool ro;
+	char mpoint[32];
+	unsigned int disk_id;
+	struct lkl_disk disk;
+	long ret;
+
+	if (info.Length() != 3) {
+		Nan::ThrowTypeError("Wrong number of arguments");
+		return;
+	}
 
 	disk.fd = info[0]->Uint32Value();
 	ro = info[1]->BooleanValue();
+	Nan::Utf8String fs_type(info[2]);
 
 	disk_id = lkl_disk_add(&disk);
-	lkl_start_kernel(&lkl_host_ops, LKL_MEMORY, "");
 
-	ret = lkl_mount_dev(disk_id, 0, "ext4", ro ? LKL_MS_RDONLY : 0, NULL, mpoint, sizeof(mpoint));
+	ret = lkl_mount_dev(disk_id, 0, *fs_type, ro ? LKL_MS_RDONLY : 0, NULL, mpoint, sizeof(mpoint));
 
-	lkl_sys_chroot(mpoint);
+	if (ret < 0) {
+		Nan::ThrowError(Nan::ErrnoException(-ret));
+		return;
+	}
+
+	v8::Local<v8::Object> ret2 = Nan::New<v8::Object>();
+	Nan::Set(ret2, Nan::New<v8::String>("mountpoint").ToLocalChecked(),
+				   Nan::New<v8::String>(mpoint).ToLocalChecked());
+	Nan::Set(ret2, Nan::New<v8::String>("diskId").ToLocalChecked(),
+				   Nan::New<v8::Number>(disk_id));
+	info.GetReturnValue().Set(ret2);
 }
 
 NAN_METHOD(umount) {
+	unsigned int disk_id;
+
+	if (info.Length() != 1) {
+		Nan::ThrowTypeError("Wrong number of arguments");
+		return;
+	}
+
+	disk_id = info[0]->BooleanValue();
+
 	lkl_sys_sync();
 	lkl_umount_dev(disk_id, 0, 0, 1000);
-	lkl_sys_halt();
 }
 
 class SyscallWorker : public Nan::AsyncWorker {
