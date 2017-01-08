@@ -1,14 +1,22 @@
 {
+  "name": "lkl",
+  "version": "0.0.1",
+  "description": "NodeJS native bindings to the Linux Kernel Library project",
+  "author": "Petros Angelatos <petrosagg@resin.io>",
+  "license": "Apache-2.0",
   "main": "index.js",
   "scripts": {
     "configure": "node-gyp configure",
     "build": "node-gyp build",
-    "test": "mocha"
+    "test": "mocha",
+    "publish-please": "publish-please",
+    "prepublish": "publish-please guard"
   },
   "devDependencies": {
     "mocha": "^2.2.5",
     "nan": "^2.0.5",
-    "node-gyp": "^1.0.3"
+    "node-gyp": "^1.0.3",
+    "publish-please": "^2.2.0"
   },
   "dependencies": {
     "bindings": "^1.2.1"
