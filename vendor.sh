@@ -2,7 +2,7 @@
 
 set -o errexit
 
-git clone https://github.com/petrosagg/lkl-linux.git --depth=1 --branch node-lkl linux-tmp
+git clone https://github.com/lkl/linux.git --depth=1 --branch master linux-tmp
  
 # Reset all access times to be in the past
 find linux-tmp | xargs touch -a -d 2015-01-01
