@@ -25,8 +25,7 @@
 				"../src/linux/tools/lkl/liblkl.a"
 			],
 			"include_dirs": [
-				"<!(node -e \"require('nan')\")",
-				"src/linux/tools/lkl/include"
+				"<!(node -e \"require('nan')\")"
 			]
 		}
 	]

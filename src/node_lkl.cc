@@ -1,8 +1,6 @@
 extern "C" {
-	#include <lkl.h>
-	#include <lkl_host.h>
+	#include "lkl.h"
 }
-
 #include "node_lkl.h"
 
 NAN_METHOD(startKernel) {
@@ -11,7 +9,7 @@ NAN_METHOD(startKernel) {
 		return;
 	}
 
-	lkl_host_ops.print = NULL;
+	// lkl_host_ops.print = NULL;
 	int memory = info[0]->Uint32Value();
 	lkl_start_kernel(&lkl_host_ops, memory, "");
 }
