@@ -9,6 +9,8 @@ find linux-tmp | xargs touch -a -d 2015-01-01
  
 # Make the library. This will update the access times of only the actually needed files
 make -j $(nproc) -C linux-tmp/tools/lkl static
+make -j $(nproc) -C linux-tmp/tools/lkl clean
+make -j $(nproc) CROSS_COMPILE=i686-w64-mingw32- -C linux-tmp/tools/lkl static
 
 # Delete anything that wasn't accessed
 find linux-tmp ! -path "*/.git/*" -atime +2 ! -type d ! -name .gitignore -delete
@@ -20,6 +22,8 @@ git -C linux-tmp clean -ffxd
 
 # Verify that the pruned tree builds
 make -j $(nproc) -C linux-tmp/tools/lkl static
+make -j $(nproc) -C linux-tmp/tools/lkl clean
+make -j $(nproc) CROSS_COMPILE=i686-w64-mingw32- -C linux-tmp/tools/lkl static
 
 # Cleanup all built objects again
 git -C linux-tmp clean -ffxd
