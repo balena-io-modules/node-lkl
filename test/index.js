@@ -6,10 +6,22 @@ const assert = require('assert');
 let mountpoint;
 
 describe('lkl', function() {
+	before(function(done) {
+		this.disk = __dirname + '/tmp.ext4';
+
+		fs.createReadStream(__dirname + '/fixtures/test.ext4')
+		.pipe(fs.createWriteStream(this.disk))
+		.on('close', done);
+	});
+
+	after(function(done) {
+		fs.unlink(this.disk, done)
+	});
+
 	it('should start the kernel', function(done) {
 		lkl.startKernelSync(10 * 1024 * 1024);
 
-		mountpoint = lkl.mountSync(__dirname + '/fixtures/test.ext4', {readOnly: false, fsType: 'ext4'});
+		mountpoint = lkl.mountSync(this.disk, {readOnly: false, fsType: 'ext4'});
 
 		let input = fs.createReadStream(__dirname + '/index.js');
 		input.pipe(lkl.fs.createWriteStream(mountpoint + '/index.js'))
