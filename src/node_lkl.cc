@@ -61,7 +61,8 @@ NAN_METHOD(umount) {
 
 	disk_id = info[0]->BooleanValue();
 
-	lkl_sys_sync();
+	long params[6] = {0, 0, 0, 0, 0, 0};
+	lkl_syscall(LKL_SYS_SYNC, params);
 	lkl_umount_dev(disk_id, 0, 0, 1000);
 }
 
@@ -73,14 +74,14 @@ class SyscallWorker : public Nan::AsyncWorker {
 
 			for (int i = 0; i < 6; i++) {
 				if (node::Buffer::HasInstance(info[i + 1])) {
-					params[i] = node::Buffer::Data(info[i + 1]->ToObject());
+					params[i] = reinterpret_cast<long>(node::Buffer::Data(info[i + 1]->ToObject()));
 					params[i + 1] = node::Buffer::Length(info[i + 1]->ToObject());
 					SaveToPersistent(i, info[i + 1]);
 					i += 2;
 				} if (info[i + 1]->IsString()) {
 					Nan::Utf8String path(info[i + 1]);
 					strncpy(paths[i], *path, LKL_PATH_MAX);
-					params[i] = paths[i];
+					params[i] = reinterpret_cast<long>(paths[i]);
 				} else {
 					params[i] = info[i + 1]->IntegerValue();
 				}
