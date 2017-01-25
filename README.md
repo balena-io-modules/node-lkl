@@ -38,13 +38,16 @@ Here's an example of using `node-lkl` to read a file inside a disk image of
 a ext4 partition and pipe it to `process.stdout`:
 
 ``` javascript
-var lkl = require('lkl');
+const lkl = require('lkl');
 
-// get a copy of the fs module for that image
-let fs = lkl.mount('data-ext4.img', false);
+// start the kernel
+lkl.startKernelSync(10 * 1024 * 1024);
 
-// create a readable stream
-let input = fs.createReadStream('/etc/passwd');
+// mount the partition image
+const mountpoint = lkl.mountSync('data-ext4.img', {readOnly: false, fsType: 'ext4'});
+
+// get a file as a readable stream
+const input = lkl.fs.createReadStream(mountpoint + '/etc/passwd');
 
 // print the file to stdout
 input.pipe(process.stdout);
