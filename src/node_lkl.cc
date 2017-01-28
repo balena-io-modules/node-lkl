@@ -24,10 +24,11 @@ NAN_METHOD(mount) {
 	bool ro;
 	char mpoint[32];
 	unsigned int disk_id;
+	unsigned int part;
 	struct lkl_disk disk;
 	long ret;
 
-	if (info.Length() != 3) {
+	if (info.Length() != 4) {
 		Nan::ThrowTypeError("Wrong number of arguments");
 		return;
 	}
@@ -35,10 +36,19 @@ NAN_METHOD(mount) {
 	disk.fd = info[0]->Uint32Value();
 	ro = info[1]->BooleanValue();
 	Nan::Utf8String fs_type(info[2]);
+	part = info[3]->Uint32Value();
 
 	disk_id = lkl_disk_add(&disk);
 
-	ret = lkl_mount_dev(disk_id, 0, *fs_type, ro ? LKL_MS_RDONLY : 0, NULL, mpoint, sizeof(mpoint));
+	ret = lkl_mount_dev(
+		disk_id,
+		part,
+		*fs_type,
+		ro ? LKL_MS_RDONLY : 0,
+		NULL,
+		mpoint,
+		sizeof(mpoint)
+	);
 
 	if (ret < 0) {
 		Nan::ThrowError(Nan::ErrnoException(-ret));
