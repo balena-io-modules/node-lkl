@@ -33,6 +33,7 @@ NAN_METHOD(mount) {
 		return;
 	}
 
+	disk.ops = NULL;
 	disk.fd = info[0]->Uint32Value();
 	ro = info[1]->BooleanValue();
 	Nan::Utf8String fs_type(info[2]);
