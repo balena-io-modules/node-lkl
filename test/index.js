@@ -2,19 +2,21 @@ const Promise = require('bluebird');
 const fs = Promise.promisifyAll(require('fs'));
 const path = require('path');
 const assert = require('assert');
-
 const lkl = Promise.promisifyAll(require('../'));
 lkl.fs = Promise.promisifyAll(lkl.fs);
 
-RAW_FS_PATH = path.join(__dirname, 'fixtures/test.ext4');
-TMP_RAW_FS_PATH = path.join(__dirname, '.tmp-test.ext4');
-
-DISK_PATH = path.join(__dirname, 'fixtures/disk.img');
+const RAW_FS_PATH = path.join(__dirname, 'fixtures/test.ext4');
+const TMP_RAW_FS_PATH = path.join(__dirname, '.tmp-test.ext4');
+const DISK_PATH = path.join(__dirname, 'fixtures/disk.img');
 
 describe('node-lkl', function() {
 	it('should start the kernel', function() {
 		lkl.startKernelSync(20 * 1024 * 1024);
 	});
+
+	after('stop the kernel', function() {
+		lkl.haltKernelSync();
+	})
 
 	describe("disks", function() {
 		describe('raw filesystem image', function() {
@@ -109,19 +111,19 @@ describe('node-lkl', function() {
 				lkl.fs.access(this.doesNotExist, function(err) {
 					assert.notEqual(err, null, 'error should exist');
 					// assert.strictEqual(err.code, 'ENOENT');
-					// assert.strictEqual(err.path, doesNotExist);
+					assert.strictEqual(err.path, this.doesNotExist);
 					done();
 				});
 			});
 
-			it('readonly file', function(done) {
+			it('should not return an error for readonly files', function(done) {
 				lkl.fs.access(this.readOnlyFile, fs.F_OK | fs.R_OK, function(err) {
 					assert.strictEqual(err, null, 'error should not exist');
 					done();
 				});
 			});
 
-			it('readonly file 2', function(done) {
+			it('should return an error for a write access to a readonly file', function(done) {
 				fs.access(this.readOnlyFile, fs.W_OK, (err) => {
 					assert.notEqual(err, null, 'error should exist');
 					assert.strictEqual(err.path, this.readOnlyFile);
