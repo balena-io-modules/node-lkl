@@ -150,3 +150,133 @@ NAN_METHOD(syscall) {
 		}
 	}
 }
+
+
+
+class ListdirWorker : public Nan::AsyncWorker {
+	private:
+		std::string path;
+		enum Nan::Encoding enc;
+		std::vector<std::string> result;
+		v8::Local<v8::Array> result_;
+
+	public:
+		int ret = 0;
+
+		ListdirWorker(char* path, enum Nan::Encoding enc, Nan::Callback *callback)
+		: Nan::AsyncWorker(callback) {
+			this->path = std::string(path);
+			this->enc = enc;
+		}
+
+		void Execute () {
+			lkl_dir *dir = lkl_opendir(this->path.c_str(), &(this->ret));
+			if (this->ret < 0) {
+				return;
+			}
+
+			lkl_linux_dirent64 *dir_entry = NULL;
+			do {
+				dir_entry = lkl_readdir(dir);
+				if (dir_entry == NULL) {
+					this->ret = lkl_errdir(dir);
+					if (this->ret < 0) {
+						lkl_closedir(dir);
+						return;
+					}
+				} else if (
+					(strcmp(dir_entry->d_name, ".") != 0) &&
+					(strcmp(dir_entry->d_name, "..") != 0)
+				) {
+					this->result.push_back(std::string(dir_entry->d_name));
+				}
+			} while(dir_entry != NULL);
+			this->ret = lkl_closedir(dir);
+		}
+
+		~ListdirWorker() {
+		}
+
+		v8::Local<v8::Array> GetResult() {
+			return this->result_;
+		}
+
+		void PrepareResult() {
+			this->result_ = Nan::New<v8::Array>();
+			v8::Local<v8::Value> filename;
+			for (uint i=0; i<this->result.size(); i++) {
+				filename = Nan::Encode(
+					this->result.at(i).c_str(),
+					this->result.at(i).length(),
+					this->enc
+				);
+				if (filename->ToString()->Length() == 0) {
+				    this->ret = -22;
+					return;
+				}
+				this->result_->Set(i, filename);
+			}
+		}
+
+		v8::Local<v8::Value> GetError() {
+			return Nan::ErrnoException(-this->ret);
+		}
+
+		void HandleErrorCallback(){}
+
+		void HandleOKCallback () {
+			this->PrepareResult();
+			if (this->ret < 0) {
+				v8::Local<v8::Value> argv[] = {this->GetError()};
+				callback->Call(1, argv);
+			} else {
+				v8::Local<v8::Value> argv[] = {
+					Nan::Null(),
+					this->GetResult()
+				};
+				callback->Call(2, argv);
+			}
+		}
+};
+
+
+NAN_METHOD(listdir) {
+	// args: path, encoding, callback
+	Nan::Callback *callback = NULL;
+	if (info[2]->IsFunction()) {
+		callback = new Nan::Callback(info[2].As<v8::Function>());
+	}
+
+	// Check that path is a string or a buffer.
+	if (!info[0]->IsString() && !node::Buffer::HasInstance(info[0])) {
+		v8::Local<v8::Value> error = Nan::TypeError(
+			"TypeError: Path must be a string or a Buffer."
+		);
+		if (callback != NULL) {
+			v8::Local<v8::Value> argv[] = {error};
+			callback->Call(1, argv);
+		} else {
+			Nan::ThrowError(error);
+		}
+		return;
+	}
+
+	Nan::Utf8String path(info[0]);
+	Nan::Utf8String encoding(info[1]);
+	enum Nan::Encoding enc = static_cast<Nan::Encoding>(
+		ParseEncoding(info.GetIsolate(), info[1], node::BINARY)
+	);
+
+	if (callback != NULL) {
+		Nan::AsyncQueueWorker(new ListdirWorker((char*)*path, enc, callback));
+	} else {
+		ListdirWorker *worker = new ListdirWorker((char*)*path, enc, NULL);
+		worker->Execute();
+		worker->PrepareResult();
+		if (worker->ret < 0) {
+			Nan::ThrowError(worker->GetError());
+		} else {
+			info.GetReturnValue().Set(worker->GetResult());
+		}
+	}
+}
