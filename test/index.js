@@ -30,7 +30,11 @@ describe('lkl', function() {
 		];
 		let mountpoint;
 		const testString = 'some string 😎\n';
-		const testFilename = 'filename';
+		// Please keep testFilename one character long: it will be encoded as
+		// utf8 and invalid when read as utf16 (UCS-2).
+		const testFilename = 'x'
+		const ext4Files = [ testFilename, 'lost+found', 'petrosagg2' ].sort();
+		const diskFiles = [ testFilename, 'some file.txt' ].sort()
 
 		before('copy disk images and mount them', function(done) {
 			// Create a copy of the ext4 partition
@@ -147,6 +151,173 @@ describe('lkl', function() {
 				// Wait for all reads to complete
 				async.parallel(calls, done);
 			});
+		});
+
+		describe('.readdirSync()', function() {
+			it('should list files', function(done) {
+				// ext4 partition
+				assert.deepEqual(
+					lkl.fs.readdirSync(mountpoint).sort(),
+					ext4Files
+				);
+				// all partitions of the disk
+				const extFiles = diskFiles.concat([ 'lost+found' ]).sort()
+				for (let info of partitions) {
+					assert.deepEqual(
+						lkl.fs.readdirSync(info.mountpoint).sort(),
+						info.fsType.startsWith('ext') ? extFiles : diskFiles
+					);
+				}
+				done()
+			});
+
+			it('should raise an error for non existent folders', function(done) {
+				try {
+					lkl.fs.readdirSync(mountpoint + '/no_such_folder');
+					assert(0);
+				} catch (err) {
+					assert.strictEqual(err.errno, 2);
+					assert.strictEqual(err.code, 'ENOENT');
+					done();
+				}
+			});
+
+			it('should raise an error if no path is given', function(done) {
+				try {
+					lkl.fs.readdirSync();
+					assert(0);
+				} catch (err) {
+					assert.strictEqual(
+						err.message,
+						'TypeError: Path must be a string or a Buffer.'
+					);
+					done();
+				}
+			});
+
+			it('should accept Buffer objects as path', function(done) {
+				const buf = new Buffer.from(mountpoint, 'utf8');
+				assert.deepEqual(lkl.fs.readdirSync(buf).sort(), ext4Files);
+				done();
+			});
+
+			it('should respect the encoding option', function(done) {
+				assert.deepEqual(
+					lkl.fs.readdirSync(mountpoint, 'buffer').sort(),
+					ext4Files.map(function(v) {
+						return new Buffer.from(v, 'utf8');
+					})
+				);
+				done();
+			});
+
+			it('should not accept a Number as path', function(done) {
+				try {
+					lkl.fs.readdirSync(42);
+					assert(0);
+				} catch (err) {
+					assert.strictEqual(
+						err.message,
+						'TypeError: Path must be a string or a Buffer.'
+					);
+				}
+				done();
+			});
+
+			it(
+				"should raise an error if it can't read filenames with the requested encoding",
+				function(done) {
+					try {
+						lkl.fs.readdirSync(mountpoint, 'ucs2')
+						assert(0);
+					} catch (err) {
+						assert.strictEqual(err.errno, 22);
+						assert.strictEqual(err.code, 'EINVAL');
+					}
+					done();
+				}
+			);
+		});
+
+		describe('.readdir()', function() {
+			it('should list files', function(done) {
+				// ext4 partition
+				lkl.fs.readdir(mountpoint, {}, function(err, result) {
+					assert.strictEqual(err, null);
+					assert.deepEqual(result.sort(), ext4Files);
+					// btrfs partition
+					lkl.fs.readdir(partitions[0].mountpoint, {}, function(err, result) {
+						assert.strictEqual(err, null);
+						assert.deepEqual(result.sort(), diskFiles);
+						done();
+					});
+				});
+			});
+
+			it('should raise an error for non existent folders', function(done) {
+				const folder = mountpoint + '/no_such_folder'
+				lkl.fs.readdir(folder, {}, function(err, result) {
+					assert.strictEqual(err.errno, 2);
+					assert.strictEqual(err.code, 'ENOENT');
+					assert.strictEqual(result, undefined);
+					done();
+				});
+			});
+
+			it('should raise an error if no path is given', function(done) {
+				lkl.fs.readdir(undefined, {}, function(err, result) {
+					assert.strictEqual(
+						err.message,
+						'TypeError: Path must be a string or a Buffer.'
+					);
+					done();
+				});
+			});
+
+			it('should not accept a Number as path', function(done) {
+				lkl.fs.readdir(42, {}, function(err, result) {
+					assert.strictEqual(result, undefined);
+					assert.strictEqual(
+						err.message,
+						'TypeError: Path must be a string or a Buffer.'
+					);
+					done();
+				});
+			});
+
+			it('should accept Buffer objects as path', function(done) {
+				const buf = new Buffer.from(mountpoint, 'utf8');
+				lkl.fs.readdir(buf, {}, function(err, result) {
+					assert.strictEqual(err, null);
+					assert.deepEqual(result.sort(), ext4Files);
+					done();
+				});
+			});
+
+			it('should respect the encoding option', function(done) {
+				lkl.fs.readdir(mountpoint, 'buffer', function(err, result) {
+					assert.strictEqual(err, null);
+					assert.deepEqual(
+						result.sort(),
+						ext4Files.map(function(v) {
+							return new Buffer.from(v, 'utf8');
+						})
+					);
+					done();
+				});
+			});
+
+			it(
+				"should raise an error if it can't read filenames with the requested encoding",
+				function(done) {
+					lkl.fs.readdir(mountpoint, 'ucs2', function(err, result) {
+					    assert.strictEqual(result, undefined);
+						assert.strictEqual(err.errno, 22);
+						assert.strictEqual(err.code, 'EINVAL');
+					    done();
+					});
+				}
+			);
 		});
 
 		describe('.access()', function() {
