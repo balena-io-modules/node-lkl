@@ -94,13 +94,12 @@ NAN_METHOD(syscall) {
 	}
 }
 
-// TODO: parseDirent64
-NAN_METHOD(parseDirent) {
+NAN_METHOD(parseDirent64) {
 	// Args:
 	// * Buffer buffer
 	// * int nread
 	// * Array result
-	// Parses buffer (which should be a lkl_linux_dirent*) and fills the
+	// Parses buffer (which should be a lkl_linux_dirent64*) and fills the
 	// result array with filenames it finds.
 	// Filenames are Buffers that need to be decoded by the caller.
 	char* buf = (char*) node::Buffer::Data(info[0]);
@@ -109,10 +108,10 @@ NAN_METHOD(parseDirent) {
 
 	int posInResult = result->Length();
 	int bpos;
-	lkl_linux_dirent *dir_entry;
+	lkl_linux_dirent64 *dir_entry;
 
 	for (bpos = 0; bpos < nread;) {
-		dir_entry = (lkl_linux_dirent *) (buf + bpos);
+		dir_entry = (lkl_linux_dirent64 *) (buf + bpos);
 		if (
 			(strcmp(dir_entry->d_name, ".") != 0) &&
 			(strcmp(dir_entry->d_name, "..") != 0)
