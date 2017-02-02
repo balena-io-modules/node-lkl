@@ -53,7 +53,7 @@ class SyscallWorker : public Nan::AsyncWorker {
 
 			if (ret < 0) {
 				v8::Local<v8::Value> argv[] = {
-					Nan::New<v8::Number>(-ret)
+					Nan::ErrnoException(-ret)
 				};
 				callback->Call(1, argv);
 			} else {
@@ -91,5 +91,41 @@ NAN_METHOD(syscall) {
 		} else {
 			info.GetReturnValue().Set(Nan::New<v8::Number>(ret));
 		}
+	}
+}
+
+// TODO: parseDirent64
+NAN_METHOD(parseDirent) {
+	// Args:
+	// * Buffer buffer
+	// * int nread
+	// * Array result
+	// Parses buffer (which should be a lkl_linux_dirent*) and fills the
+	// result array with filenames it finds.
+	// Filenames are Buffers that need to be decoded by the caller.
+	char* buf = (char*) node::Buffer::Data(info[0]);
+	int nread = info[1]->IntegerValue();
+	v8::Local<v8::Array> result = info[2].As<v8::Array>();
+
+	int posInResult = result->Length();
+	int bpos;
+	lkl_linux_dirent *dir_entry;
+
+	for (bpos = 0; bpos < nread;) {
+		dir_entry = (lkl_linux_dirent *) (buf + bpos);
+		if (
+			(strcmp(dir_entry->d_name, ".") != 0) &&
+			(strcmp(dir_entry->d_name, "..") != 0)
+		) {
+			result->Set(
+				posInResult,
+				Nan::CopyBuffer(
+					dir_entry->d_name,
+					strlen(dir_entry->d_name)
+				).ToLocalChecked()
+			);
+			posInResult++;
+		}
+		bpos += dir_entry->d_reclen;
 	}
 }
