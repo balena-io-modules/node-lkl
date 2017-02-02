@@ -85,6 +85,13 @@ describe('node-lkl', function() {
 			});
 		});
 
+		describe('.mkdirSync()', function() {
+			it('should create folders', function(done) {
+				lkl.fs.mkdirSync('/10K');
+				done();
+			});
+		});
+
 		describe('.readdirSync()', function() {
 			it('should list files', function(done) {
 				// ext4 partition
