@@ -147,7 +147,7 @@ describe('node-lkl', function() {
 			});
 
 			it('should accept Buffer objects as path', function(done) {
-				const buf = new Buffer.from(mountpoint + '/' + folder, 'utf8');
+				const buf = new Buffer.from(mountpoint + '/' + folder);
 				assert.deepEqual(lkl.fs.readdirSync(buf).sort(), files);
 				done();
 			});

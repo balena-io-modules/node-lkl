@@ -28,13 +28,11 @@ class SyscallWorker : public Nan::AsyncWorker {
 
 			for (int i = 0; i < 6; i++) {
 				if (node::Buffer::HasInstance(info[i + 1])) {
-					params[i] = node::Buffer::Data(info[i + 1]->ToObject());
-					params[i + 1] = node::Buffer::Length(info[i + 1]->ToObject());
-					SaveToPersistent(i, info[i + 1]);
-					i += 2;
-				} if (info[i + 1]->IsString()) {
+					params[i] = node::Buffer::Data(info[i + 1]);
+				} else if (info[i + 1]->IsString()) {
 					Nan::Utf8String path(info[i + 1]);
-					strncpy(paths[i], *path, LKL_PATH_MAX);
+					assert(strlen(*path) <= LKL_PATH_MAX);
+					strcpy(paths[i], *path);
 					params[i] = paths[i];
 				} else {
 					params[i] = info[i + 1]->IntegerValue();
