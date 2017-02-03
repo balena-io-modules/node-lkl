@@ -2,6 +2,7 @@ const Promise = require('bluebird');
 const fs = Promise.promisifyAll(require('fs'));
 const path = require('path');
 const assert = require('assert');
+const constants = require('../lib/constants');
 const lkl = Promise.promisifyAll(require('../'));
 lkl.fs = Promise.promisifyAll(lkl.fs);
 
@@ -90,21 +91,32 @@ describe('node-lkl', function() {
 				lkl.fs.mkdirSync('/10K');
 				done();
 			});
+
+			after(function(done) {
+				lkl.fs.unlinkSync(mountpoint + '/' + testFilename);
+				for (let info of partitions) {
+					lkl.fs.unlinkSync(info.mountpoint + '/' + testFilename);
+				}
+				done();
+			});
 		});
 
 		describe('.readdirSync()', function() {
+
+			before(createTestFolders);
+			after(deleteTestFolders);
+
 			it('should list files', function(done) {
 				// ext4 partition
 				assert.deepEqual(
-					lkl.fs.readdirSync(mountpoint).sort(),
-					ext4Files
+					lkl.fs.readdirSync(mountpoint + '/' + folder).sort(),
+					files
 				);
 				// all partitions of the disk
-				const extFiles = diskFiles.concat([ 'lost+found' ]).sort()
 				for (let info of partitions) {
 					assert.deepEqual(
-						lkl.fs.readdirSync(info.mountpoint).sort(),
-						info.fsType.startsWith('ext') ? extFiles : diskFiles
+						lkl.fs.readdirSync(info.mountpoint + '/' + folder).sort(),
+						files
 					);
 				}
 				done()
@@ -112,7 +124,7 @@ describe('node-lkl', function() {
 
 			it('should raise an error for non existent folders', function(done) {
 				try {
-					lkl.fs.readdirSync(mountpoint + '/no_such_folder');
+					lkl.fs.readdirSync('/no_such_folder');
 					assert(0);
 				} catch (err) {
 					assert.strictEqual(err.errno, 2);
@@ -135,15 +147,15 @@ describe('node-lkl', function() {
 			});
 
 			it('should accept Buffer objects as path', function(done) {
-				const buf = new Buffer.from(mountpoint, 'utf8');
-				assert.deepEqual(lkl.fs.readdirSync(buf).sort(), ext4Files);
+				const buf = new Buffer.from(mountpoint + '/' + folder, 'utf8');
+				assert.deepEqual(lkl.fs.readdirSync(buf).sort(), files);
 				done();
 			});
 
 			it('should respect the encoding option', function(done) {
 				assert.deepEqual(
-					lkl.fs.readdirSync(mountpoint, 'buffer').sort(),
-					ext4Files.map(function(v) {
+					lkl.fs.readdirSync(mountpoint + '/' + folder, 'buffer').sort(),
+					files.map(function(v) {
 						return new Buffer.from(v, 'utf8');
 					})
 				);
@@ -167,7 +179,7 @@ describe('node-lkl', function() {
 				"should raise an error if it can't read filenames with the requested encoding",
 				function(done) {
 					try {
-						lkl.fs.readdirSync(mountpoint, 'ucs2')
+						lkl.fs.readdirSync(mountpoint + '/' + folder, 'ucs2')
 						assert(0);
 					} catch (err) {
 						assert.strictEqual(err.errno, 22);
@@ -179,23 +191,26 @@ describe('node-lkl', function() {
 		});
 
 		describe('.readdir()', function() {
+
+			before(createTestFolders);
+			after(deleteTestFolders);
+
 			it('should list files', function(done) {
 				// ext4 partition
-				lkl.fs.readdir(mountpoint, {}, function(err, result) {
+				lkl.fs.readdir(mountpoint + '/' + folder, {}, function(err, result) {
 					assert.strictEqual(err, null);
-					assert.deepEqual(result.sort(), ext4Files);
+					assert.deepEqual(result.sort(), files);
 					// btrfs partition
-					lkl.fs.readdir(partitions[0].mountpoint, {}, function(err, result) {
+					lkl.fs.readdir(partitions[0].mountpoint + '/' + folder, function(err, result) {
 						assert.strictEqual(err, null);
-						assert.deepEqual(result.sort(), diskFiles);
+						assert.deepEqual(result.sort(), files);
 						done();
 					});
 				});
 			});
 
 			it('should raise an error for non existent folders', function(done) {
-				const folder = mountpoint + '/no_such_folder'
-				lkl.fs.readdir(folder, {}, function(err, result) {
+				lkl.fs.readdir('/no_such_folder', {}, function(err, result) {
 					assert.strictEqual(err.errno, 2);
 					assert.strictEqual(err.code, 'ENOENT');
 					assert.strictEqual(result, undefined);
@@ -225,20 +240,20 @@ describe('node-lkl', function() {
 			});
 
 			it('should accept Buffer objects as path', function(done) {
-				const buf = new Buffer.from(mountpoint, 'utf8');
+				const buf = new Buffer.from(mountpoint + '/' + folder, 'utf8');
 				lkl.fs.readdir(buf, {}, function(err, result) {
 					assert.strictEqual(err, null);
-					assert.deepEqual(result.sort(), ext4Files);
+					assert.deepEqual(result.sort(), files);
 					done();
 				});
 			});
 
 			it('should respect the encoding option', function(done) {
-				lkl.fs.readdir(mountpoint, 'buffer', function(err, result) {
+				lkl.fs.readdir(mountpoint + '/' + folder, 'buffer', function(err, result) {
 					assert.strictEqual(err, null);
 					assert.deepEqual(
 						result.sort(),
-						ext4Files.map(function(v) {
+						files.map(function(v) {
 							return new Buffer.from(v, 'utf8');
 						})
 					);
@@ -249,7 +264,7 @@ describe('node-lkl', function() {
 			it(
 				"should raise an error if it can't read filenames with the requested encoding",
 				function(done) {
-					lkl.fs.readdir(mountpoint, 'ucs2', function(err, result) {
+					lkl.fs.readdir(mountpoint + '/' + folder, 'ucs2', function(err, result) {
 					    assert.strictEqual(result, undefined);
 						assert.strictEqual(err.errno, 22);
 						assert.strictEqual(err.code, 'EINVAL');
