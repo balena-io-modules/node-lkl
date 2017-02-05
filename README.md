@@ -16,8 +16,7 @@ Some things you can do with this module:
 Check the [How it works](#how-it-works) section to learn how it works.
 
 **Warning: The API exposed by this library is still forming and can change at
-any time.  Also, some methods do blocking I/O on the main thread (e.g
-`lkl.mount()`). This will change in the future**
+any time!**
 
 Installation
 ------------
@@ -40,27 +39,31 @@ a ext4 partition and pipe it to `process.stdout`:
 ``` javascript
 const lkl = require('lkl');
 
-// start the kernel
+// Run the kernel with 10MB of memory
 lkl.startKernelSync(10 * 1024 * 1024);
 
-// mount the partition image
-const mountpoint = lkl.mountSync('data-ext4.img', {readOnly: false, fsType: 'ext4'});
+const disk = new lkl.disk.FileDisk('data.ext4');
 
-// get a file as a readable stream
-const input = lkl.fs.createReadStream(mountpoint + '/etc/passwd');
+const mountpoint = lkl.mount(disk, {filesystem: 'ext4'}, function(err, mountpoint) {
+	if (err) {
+		console.error(err);
+		return;
+	}
 
-// print the file to stdout
-input.pipe(process.stdout);
+	const file = lkl.fs.createReadStream(mountpoint + '/etc/passwd');
+
+	file.pipe(process.stdout);
+});
 ```
 
 How it works
 ------------
 
-node-lkl is based on the LKL (Linux Kernel Library) project. This project is
-focused on the filesystem capabilities although future work could allow usage
-of the kernel networking stack as well. To understand how a userspace process
-can "mount" an image without actually mounting it, it helps to think about the
-interface between an actual kernel and a block device.
+node-lkl is based on the LKL (Linux Kernel Library) project. node-lkl is
+focused on the filesystem capabilities of lkl although future work could allow
+usage of the kernel networking stack as well. To understand how a userspace
+process can "mount" an image without actually mounting it, it helps to think
+about the interface between an actual kernel and a block device.
 
 ```
  +---------------+
@@ -84,47 +87,47 @@ interface between an actual kernel and a block device.
 ```
 
 Everything inside the box named `kernel` doesn't actually need the hardware
-to do its job. When an application instructs the kernel to read a file, the fs
-driver issues some read requests to the block driver and the block driver
-issues those to the hard drive. All of the high level filesystem semantics like
-files, directories, permissions, etc. are "compiled" down to raw reads and writes
-at specific offsets.
+to do its job. When an application instructs the kernel to read a file, the
+filesystem driver issues some read requests to the block driver and the block
+driver issues those to the hard drive. All of the high level filesystem
+semantics like files, directories, permissions, etc. are "compiled" down to raw
+reads and writes at specific offsets.
 
 This means that as long as we can provide a block request interface to the
 kernel, and find a way to run the kernel in userspace, we can use all of its
 functionality. This is how it looks like with node-lkl:
 
 ```
- +----------------------------------------------------+
- |  nodejs application                                |
- |                                                    |
- | +-------------------------------+                  |
- | | V8                            |                  |
- | |                               |                  |
- | | fs.read();     lkl_fs.read(); |                  |
- | +------|---------------|--------+                  |
- |        |               |                           |
- |        |       virtual | syscall interface         |
- |        |      +--------V---------+                 |
- |        |      |     liblkl.so    |                 |
- |        |      | +-------------+  |                 |
- |        |      | |  fs driver  |  |                 |
- |        |      | +-------+-----+  |                 |
- |        |      |         |        |                 |
- |        |      | +-------V------+ |                 |
- |        |      | | block driver | |                 |
- |        |      | +-------+------+ |                 |
- |        |      +---------|--------+                 |
- |        |        virtual | block request interface  |
- |        |    +-----------V----------+               |
- |        |    | open file descriptor |               |
- |        |    +-----------V----------+               |
- |        |                |                          |
- |        |----------------+                          |
- |        |                                           |
- +--------|-------------------------------------------+
-          | syscall interface
- +--------V---------+
+ +----------------------------------------------------------+
+ |  nodejs application                                      |
+ |                                                          |
+ | +-----------------------------------------------------+  |
+ | | V8                                 +-----------+    |  |
+ | |                                    | request() |-+  |  |
+ | | fs.read();   lkl.fs.read();        +------^----+ |  |  |
+ | +---|---------------|-----------------------|------|--+  |
+ |     |               |                       |      |     |
+ |     |       virtual | syscall interface     |      |     |
+ |     |      +--------V---------+             |    async   |
+ |     |      |     liblkl.so    |             |      |     |
+ |     |      | +-------------+  |             |      |     |
+ |     |      | |  fs driver  |  |           async    |     |
+ |     |      | +-------+-----+  |             |      |     |
+ |     |      |         |        |             |      |     |
+ |     |      | +-------V------+ |             |      |     |
+ |     |      | | block driver | |             |      |     |
+ |     |      | +-------+------+ |             |      |     |
+ |     |      +---------|--------+             |      |     |
+ |     |  virtual block | request interface    |      |     |
+ |     |        +-------V------+               |      |     |
+ |     |        |  V8 adapter  |---------------+      |     |
+ |     |        +--------------+                      |     |
+ |     |                                              |     |
+ |     |--------------------------------------------- +     |
+ |     |                                                    |
+ +-----|----------------------------------------------------+
+       | syscall interface
+ +-----V------------+
  |      kernel      |
  | +-------------+  |
  | |  fs driver  |  |
