@@ -248,21 +248,13 @@ class UmountWorker : public AsyncWorker {
 };
 
 NAN_METHOD(umount) {
-	unsigned int disk_id;
-	int ret;
-
-	if (info.Length() != 1) {
+	if (info.Length() != 3) {
 		ThrowTypeError("Wrong number of arguments");
 		return;
 	}
 
-	disk_id = info[0]->IntegerValue();
-
-	lkl_sys_sync();
-	ret = lkl_umount_dev(disk_id, 0, 0, 1000);
-	if (ret < 0) {
-		ThrowError(ErrnoException(-ret));
-	} else {
-		info.GetReturnValue().Set(New(ret));
+	if (info[2]->IsFunction()) {
+		Callback *callback = new Callback(info[2].As<v8::Function>());
+		AsyncQueueWorker(new UmountWorker(info, callback));
 	}
 }
