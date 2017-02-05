@@ -1,118 +1,108 @@
-const lkl = require('../');
-const fs = require('fs');
+const Promise = require('bluebird');
+const fs = Promise.promisifyAll(require('fs'));
 const path = require('path');
 const assert = require('assert');
-const async = require('async');
-const zlib = require('zlib');
 
-let mountpoint;
+const lkl = Promise.promisifyAll(require('../'));
+lkl.fs = Promise.promisifyAll(lkl.fs);
 
-describe('lkl', function() {
-	before(function(done) {
-		const self = this;
-		this.disk = __dirname + '/tmp.ext4';  // ext4 partition
-		this.partitionnedDisk = __dirname + '/tmp.img';  // whole disk
-		this.partitions = [  // whole disk partitions
-			{ number: 1, fsType: 'btrfs' },
-			{ number: 2, fsType: 'ext2' },
-			{ number: 3, fsType: 'ext4' },
-			// 4 is an extended partition
-			{ number: 5, fsType: 'vfat' },  // fat16
-			{ number: 6, fsType: 'vfat' },  // fat32
-			{ number: 7, fsType: 'xfs' },
-		]
+RAW_FS_PATH = path.join(__dirname, 'fixtures/test.ext4');
+TMP_RAW_FS_PATH = path.join(__dirname, '.tmp-test.ext4');
 
-		// create a copy of the ext4 partition
-		fs.createReadStream(__dirname + '/fixtures/test.ext4')
-		.pipe(fs.createWriteStream(this.disk))
-		.on('close', function() {
-			// then create a copy of the partitionned disk.
-			// The disk image is compressed in order to avoid github's file
-			// size restrictions.
-			fs.createReadStream(__dirname + '/fixtures/disk.img.gz')
-			.pipe(zlib.createGunzip())
-			.pipe(fs.createWriteStream(self.partitionnedDisk))
-			.on('close', done);
-		});
+DISK_PATH = path.join(__dirname, 'fixtures/disk.img');
+
+describe('node-lkl', function() {
+	it('should start the kernel', function() {
+		lkl.startKernelSync(20 * 1024 * 1024);
 	});
 
-	after(function(done) {
-		const self = this;
-		// umount all partitions of the partitionned disk
-		for (let info of this.partitions) {
-			lkl.umountSync(info.mountpoint)
-		}
-		// umount the ext4 partition
-		lkl.umountSync(mountpoint)
-		// delete the ext4 partition copy
-		fs.unlink(this.disk, function() {
-			// then delete the partitionned disk copy
-			fs.unlink(self.partitionnedDisk, done);
-		});
-	});
-
-	it('should start the kernel', function(done) {
-		lkl.startKernelSync(10 * 1024 * 1024);
-
-		// Mount the ext4 partition.
-		mountpoint = lkl.mountSync(this.disk, {readOnly: false, fsType: 'ext4'});
-		// Mount all the paritions of the partitionned disk.
-		for (let info of this.partitions) {
-			info.mountpoint = lkl.mountSync(
-				this.partitionnedDisk,
-				{ partition: info.number, fsType: info.fsType }
-			)
-		}
-
-		function copyFile(source, destination, callback) {
-			fs.createReadStream(source)
-			.pipe(lkl.fs.createWriteStream(destination))
-			.on('close', callback);
-		}
-
-		const sourceFile = __dirname + '/index.js';
-		// Write a file on the ext4 partition.
-		const calls = [];
-		calls.push(function(callback) {
-			copyFile(sourceFile, mountpoint + '/index.js', callback);
-		});
-		// Write a file on each partition of the partitionned drive.
-		for (let info of this.partitions) {
-			calls.push(function(callback) {
-				copyFile(sourceFile, info.mountpoint + '/index.js', callback);
+	describe("disks", function() {
+		describe('raw filesystem image', function() {
+			before(function() {
+				this.disk = new lkl.disk.FileDisk(RAW_FS_PATH);
 			});
-		}
-		// Wait for all writes to complete
-		async.parallel(calls, done);
+
+			it('should mount', function() {
+				return lkl.mountAsync(this.disk, { readOnly: true, filesystem: 'ext4'})
+				.then(lkl.umountAsync);
+			});
+		});
+
+		describe('MBR disk image', function() {
+			before(function() {
+				this.disk = new lkl.disk.FileDisk(DISK_PATH);
+			});
+
+			it('should mount vfat', function() {
+				return lkl.mountAsync(this.disk, {readOnly: true, filesystem: 'vfat', partition: 1})
+				.then(lkl.umountAsync)
+			});
+
+			it('should mount ext2', function() {
+				return lkl.mountAsync(this.disk, {readOnly: true, filesystem: 'ext2', partition: 2})
+				.then(lkl.umountAsync)
+			});
+
+			it('should mount ext4', function() {
+				return lkl.mountAsync(this.disk, {readOnly: true, filesystem: 'ext4', partition: 3})
+				.then(lkl.umountAsync)
+			});
+
+			it('should mount btrfs', function() {
+				return lkl.mountAsync(this.disk, {readOnly: true, filesystem: 'btrfs', partition: 5})
+				.then(lkl.umountAsync)
+			});
+
+			it('should mount xfs', function() {
+				return lkl.mountAsync(this.disk, {readOnly: true, filesystem: 'xfs', partition: 6})
+				.then(lkl.umountAsync)
+			});
+		});
 	});
 
 	describe('fs', function() {
-		describe('.access()', function() {
-			let removeFile = function(file) {
-				try {
-					lkl.fs.unlinkSync(file);
-				} catch (err) {
-					// Ignore error
-				}
-			};
+		before(function(done) {
+			self = this;
 
+			fs.createReadStream(RAW_FS_PATH)
+			.pipe(fs.createWriteStream(TMP_RAW_FS_PATH))
+			.on('close', function() {
+				const disk = new lkl.disk.FileDisk(TMP_RAW_FS_PATH);
+
+				lkl.mountAsync(disk, {filesystem: 'ext4'})
+				.then(function (mountpoint) {
+					self.mountpoint = mountpoint;
+				}).nodeify(done);
+			});
+		});
+
+		after(function() {
+			return lkl.umountAsync(this.mountpoint)
+			.then(function() {
+				return fs.unlinkAsync(TMP_RAW_FS_PATH)
+			});
+		});
+
+		describe('.access()', function() {
 			let createFileWithPerms = function(file, mode) {
-				removeFile(file);
-				lkl.fs.writeFileSync(file, '');
-				lkl.fs.chmodSync(file, mode);
+				// FIXME: remove the catch clause once unlink gets implemented
+				return lkl.fs.unlinkAsync(file).catch(function() {})
+				.then(function() {
+					return lkl.fs.writeFileAsync(file, '');
+				}).then(function() {
+					return lkl.fs.chmodAsync(file, mode);
+				});
 			};
 
 			before(function() {
-				this.doesNotExist = path.join(mountpoint, '__this_should_not_exist');
-				this.readOnlyFile = path.join(mountpoint, 'read_only_file');
-				this.readWriteFile = path.join(mountpoint, 'read_write_file');
+				this.doesNotExist = path.join(this.mountpoint, '__this_should_not_exist');
+				this.readOnlyFile = path.join(this.mountpoint, 'read_only_file');
+				this.readWriteFile = path.join(this.mountpoint, 'read_write_file');
 
-				createFileWithPerms(this.readOnlyFile, 0o444);
-				createFileWithPerms(this.readWriteFile, 0o666);
-			});
-
-			after(function() {
-
+				return Promise.all([
+					createFileWithPerms(this.readOnlyFile, 0o444),
+					createFileWithPerms(this.readWriteFile, 0o666)
+				]);
 			});
 
 			it('non existent file', function(done) {
