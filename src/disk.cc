@@ -161,8 +161,14 @@ class MountWorker : public AsyncWorker {
 
 		void Execute () {
 			disk_id = lkl_disk_add(&disk);
-			ret = lkl_mount_dev(disk_id, part, fs_type, readonly ? LKL_MS_RDONLY :
-								0, NULL, mountpoint, sizeof(mountpoint));
+			ret = lkl_mount_dev(
+					disk_id,
+					part,
+					fs_type,
+					readonly ? LKL_MS_RDONLY : 0, NULL,
+					mountpoint,
+					sizeof(mountpoint)
+			);
 		}
 
 		void HandleOKCallback () {
@@ -170,7 +176,7 @@ class MountWorker : public AsyncWorker {
 
 			if (ret < 0) {
 				v8::Local<v8::Value> argv[] = {
-					New<v8::Number>(-ret)
+					ErrnoException(-ret)
 				};
 				callback->Call(1, argv);
 			} else {
@@ -203,6 +209,43 @@ NAN_METHOD(mount) {
 		AsyncQueueWorker(new MountWorker(info, callback));
 	}
 }
+
+class UmountWorker : public AsyncWorker {
+	public:
+		UmountWorker(NAN_METHOD_ARGS_TYPE info, Callback *callback)
+		: AsyncWorker(callback) {
+			disk_id = info[0]->Uint32Value();
+			partition = info[1]->Uint32Value();
+		}
+
+		~UmountWorker() {}
+
+		void Execute () {
+			lkl_sys_sync();
+			ret = lkl_umount_dev(disk_id, partition, 0, 1000);
+		}
+
+		void HandleOKCallback () {
+			HandleScope scope;
+
+			if (ret < 0) {
+				v8::Local<v8::Value> argv[] = {
+					ErrnoException(-ret)
+				};
+				callback->Call(1, argv);
+			} else {
+				v8::Local<v8::Value> argv[] = {
+					Null(),
+					New<v8::Number>(ret)
+				};
+				callback->Call(2, argv);
+			}
+		}
+	private:
+		unsigned int disk_id;
+		unsigned int partition;
+		int ret;
+};
 
 NAN_METHOD(umount) {
 	unsigned int disk_id;
