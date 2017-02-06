@@ -95,20 +95,18 @@ NAN_METHOD(syscall) {
 NAN_METHOD(parseDirent64) {
 	// Args:
 	// * Buffer buffer
-	// * int nread
 	// Parses buffer (which should be a lkl_linux_dirent64*) and returns an
 	// array with the filenames it finds.
 	// Filenames are Buffers that need to be decoded by the caller.
 	char* buf = (char*) node::Buffer::Data(info[0]);
-	unsigned int nread = info[1]->Uint32Value();
-	assert(nread <= node::Buffer::Length(info[0]));
+	unsigned int length = node::Buffer::Length(info[0]);
 	v8::Local<v8::Array> result = Nan::New<v8::Array>();
 
 	unsigned int posInResult = result->Length();
 	unsigned int bpos;
 	lkl_linux_dirent64 *dir_entry;
 
-	for (bpos = 0; bpos < nread;) {
+	for (bpos = 0; bpos < length;) {
 		dir_entry = (lkl_linux_dirent64 *) (buf + bpos);
 		if (
 			(strcmp(dir_entry->d_name, ".") != 0) &&
@@ -118,7 +116,7 @@ NAN_METHOD(parseDirent64) {
 				posInResult,
 				Nan::CopyBuffer(
 					dir_entry->d_name,
-					strlen(dir_entry->d_name)
+					strnlen(dir_entry->d_name, LKL_NAME_MAX)
 				).ToLocalChecked()
 			);
 			posInResult++;
