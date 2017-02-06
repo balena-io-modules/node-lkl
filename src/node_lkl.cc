@@ -96,14 +96,13 @@ NAN_METHOD(parseDirent64) {
 	// Args:
 	// * Buffer buffer
 	// * int nread
-	// * Array result
-	// Parses buffer (which should be a lkl_linux_dirent64*) and fills the
-	// result array with filenames it finds.
+	// Parses buffer (which should be a lkl_linux_dirent64*) and returns an
+	// array with the filenames it finds.
 	// Filenames are Buffers that need to be decoded by the caller.
 	char* buf = (char*) node::Buffer::Data(info[0]);
 	unsigned int nread = info[1]->Uint32Value();
 	assert(nread <= node::Buffer::Length(info[0]));
-	v8::Local<v8::Array> result = info[2].As<v8::Array>();
+	v8::Local<v8::Array> result = Nan::New<v8::Array>();
 
 	unsigned int posInResult = result->Length();
 	unsigned int bpos;
@@ -126,4 +125,5 @@ NAN_METHOD(parseDirent64) {
 		}
 		bpos += dir_entry->d_reclen;
 	}
+	info.GetReturnValue().Set(result);
 }
