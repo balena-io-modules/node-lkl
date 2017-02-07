@@ -1,7 +1,7 @@
 node-lkl
 =========
 ### NodeJS native bindings to the Linux Kernel Library project
-[![Build Status](https://travis-ci.org/petrosagg/node-lkl.svg?branch=master)](https://travis-ci.org/petrosagg/node-lkl)
+[![Build Status](https://travis-ci.org/resin-io/node-lkl.svg?branch=master)](https://travis-ci.org/resin-io/node-lkl)
 
 node-lkl uses the [Linux Kernel Library project](https://github.com/lkl/linux) to provide access to filesystem drivers
 from NodeJS in a cross-platform way.
@@ -154,5 +154,5 @@ License
 node-lkl is free software, and may be redistributed under the terms specified
 in the [license].
 
-[github-issue]: https://github.com/petrosagg/node-lkl/issues/new
-[license]: https://github.com/petrosagg/node-lkl/blob/master/LICENSE
+[github-issue]: https://github.com/resin-io/node-lkl/issues/new
+[license]: https://github.com/resin-io/node-lkl/blob/master/LICENSE
