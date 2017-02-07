@@ -4,6 +4,8 @@
 			"target_name": "bindings",
 			"sources": [
 				"src/node_lkl.cc",
+				"src/disk.cc",
+				"src/async.cc",
 				"src/bindings.cc"
 			],
 			'actions': [
