@@ -62,7 +62,7 @@ describe('node-lkl', function() {
 
 	describe('fs', function() {
 		before(function(done) {
-			self = this;
+			const self = this;
 
 			fs.createReadStream(RAW_FS_PATH)
 			.pipe(fs.createWriteStream(TMP_RAW_FS_PATH))
@@ -84,7 +84,7 @@ describe('node-lkl', function() {
 		});
 
 		describe('.access()', function() {
-			let createFileWithPerms = function(file, mode) {
+			const createFileWithPerms = function(file, mode) {
 				// FIXME: remove the catch clause once unlink gets implemented
 				return lkl.fs.unlinkAsync(file).catch(function() {})
 				.then(function() {
