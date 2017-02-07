@@ -64,6 +64,8 @@ describe('node-lkl', function() {
 	});
 
 	describe('fs', function() {
+		const folder = '/some folder';
+
 		before(function(done) {
 			const self = this;
 
@@ -86,126 +88,78 @@ describe('node-lkl', function() {
 			});
 		});
 
-		describe('.mkdirSync()', function() {
-			it('should create folders', function(done) {
-				lkl.fs.mkdirSync('/10K');
-				done();
+		describe('.mkdir(), .rmdir()', function() {
+			it('should create / delete folder', function(done) {
+				lkl.fs.mkdir(folder, function(err) {
+					assert.strictEqual(err, null);
+					done();
+				});
 			});
 
 			after(function(done) {
-				lkl.fs.unlinkSync(mountpoint + '/' + testFilename);
-				for (let info of partitions) {
-					lkl.fs.unlinkSync(info.mountpoint + '/' + testFilename);
-				}
-				done();
-			});
-		});
-
-		describe('.readdirSync()', function() {
-
-			before(createTestFolders);
-			after(deleteTestFolders);
-
-			it('should list files', function(done) {
-				// ext4 partition
-				assert.deepEqual(
-					lkl.fs.readdirSync(mountpoint + '/' + folder).sort(),
-					files
-				);
-				// all partitions of the disk
-				for (let info of partitions) {
-					assert.deepEqual(
-						lkl.fs.readdirSync(info.mountpoint + '/' + folder).sort(),
-						files
-					);
-				}
-				done()
-			});
-
-			it('should raise an error for non existent folders', function(done) {
-				try {
-					lkl.fs.readdirSync('/no_such_folder');
-					assert(0);
-				} catch (err) {
-					assert.strictEqual(err.errno, 2);
-					assert.strictEqual(err.code, 'ENOENT');
+				lkl.fs.rmdir(folder, function(err) {
+					assert.strictEqual(err, null);
 					done();
-				}
+				});
 			});
-
-			it('should raise an error if no path is given', function(done) {
-				try {
-					lkl.fs.readdirSync();
-					assert(0);
-				} catch (err) {
-					assert.strictEqual(
-						err.message,
-						'TypeError: Path must be a string or a Buffer.'
-					);
-					done();
-				}
-			});
-
-			it('should accept Buffer objects as path', function(done) {
-				const buf = new Buffer.from(mountpoint + '/' + folder);
-				assert.deepEqual(lkl.fs.readdirSync(buf).sort(), files);
-				done();
-			});
-
-			it('should respect the encoding option', function(done) {
-				assert.deepEqual(
-					lkl.fs.readdirSync(mountpoint + '/' + folder, 'buffer').sort(),
-					files.map(function(v) {
-						return new Buffer.from(v, 'utf8');
-					})
-				);
-				done();
-			});
-
-			it('should not accept a Number as path', function(done) {
-				try {
-					lkl.fs.readdirSync(42);
-					assert(0);
-				} catch (err) {
-					assert.strictEqual(
-						err.message,
-						'TypeError: Path must be a string or a Buffer.'
-					);
-				}
-				done();
-			});
-
-			it(
-				"should raise an error if it can't read filenames with the requested encoding",
-				function(done) {
-					try {
-						lkl.fs.readdirSync(mountpoint + '/' + folder, 'ucs2')
-						assert(0);
-					} catch (err) {
-						assert.strictEqual(err.errno, 22);
-						assert.strictEqual(err.code, 'EINVAL');
-					}
-					done();
-				}
-			);
 		});
 
 		describe('.readdir()', function() {
 
-			before(createTestFolders);
-			after(deleteTestFolders);
+			const files = []
+			for (let i = 0; i < 100; i++) {
+				files.push('file' + i);
+			}
+			// Please keep the following filename one character long: it will be
+			// encoded as utf8 and invalid when read as utf16 (UCS-2).
+			files.push('x')
+			files.sort();
+
+			function touch(path) {
+				return lkl.fs.openAsync(
+					path,
+					constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC
+				)
+				.then(lkl.fs.closeAsync)
+			}
+
+			function createFiles(path) {
+				return Promise.each(files, function(f) {
+					return touch(path + '/' + f)
+				})
+			}
+
+			function deleteFiles(path) {
+				return Promise.each(files, function(f) {
+					return lkl.fs.unlinkAsync(path + '/' + f)
+				})
+			}
+
+			before(function(done) {
+				return lkl.fs.mkdirAsync(folder)
+				.then(function() {
+					return createFiles(folder);
+				})
+				.then(function() {
+					done();
+				});
+			});
+
+			after(function (done) {
+				return deleteFiles(folder)
+				.then(function() {
+					return lkl.fs.rmdirAsync(folder);
+				}).then(function() {
+					done();
+				});
+			});
 
 			it('should list files', function(done) {
 				// ext4 partition
-				lkl.fs.readdir(mountpoint + '/' + folder, {}, function(err, result) {
+				lkl.fs.readdir(folder, {}, function(err, result) {
 					assert.strictEqual(err, null);
 					assert.deepEqual(result.sort(), files);
-					// btrfs partition
-					lkl.fs.readdir(partitions[0].mountpoint + '/' + folder, function(err, result) {
-						assert.strictEqual(err, null);
-						assert.deepEqual(result.sort(), files);
-						done();
-					});
+					done();
 				});
 			});
 
@@ -240,7 +194,7 @@ describe('node-lkl', function() {
 			});
 
 			it('should accept Buffer objects as path', function(done) {
-				const buf = new Buffer.from(mountpoint + '/' + folder, 'utf8');
+				const buf = new Buffer.from(folder, 'utf8');
 				lkl.fs.readdir(buf, {}, function(err, result) {
 					assert.strictEqual(err, null);
 					assert.deepEqual(result.sort(), files);
@@ -249,7 +203,7 @@ describe('node-lkl', function() {
 			});
 
 			it('should respect the encoding option', function(done) {
-				lkl.fs.readdir(mountpoint + '/' + folder, 'buffer', function(err, result) {
+				lkl.fs.readdir(folder, 'buffer', function(err, result) {
 					assert.strictEqual(err, null);
 					assert.deepEqual(
 						result.sort(),
@@ -264,7 +218,7 @@ describe('node-lkl', function() {
 			it(
 				"should raise an error if it can't read filenames with the requested encoding",
 				function(done) {
-					lkl.fs.readdir(mountpoint + '/' + folder, 'ucs2', function(err, result) {
+					lkl.fs.readdir(folder, 'ucs2', function(err, result) {
 					    assert.strictEqual(result, undefined);
 						assert.strictEqual(err.errno, 22);
 						assert.strictEqual(err.code, 'EINVAL');
@@ -276,9 +230,16 @@ describe('node-lkl', function() {
 
 		describe('.access()', function() {
 			const createFileWithPerms = function(file, mode) {
-				// FIXME: remove the catch clause once unlink gets implemented
-				return lkl.fs.unlinkAsync(file).catch(function() {})
-				.then(function() {
+				// the catch is here in case the file doesn't exist
+				return lkl.fs.unlinkAsync(file)
+				.catch(function(err) {
+					if (err) {
+						assert.strictEqual(
+							err.message,
+							'ENOENT, No such file or directory'
+						);
+					}
+				}).then(function() {
 					return lkl.fs.writeFileAsync(file, '');
 				}).then(function() {
 					return lkl.fs.chmodAsync(file, mode);
