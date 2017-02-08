@@ -28,13 +28,11 @@ class SyscallWorker : public Nan::AsyncWorker {
 
 			for (int i = 0; i < 6; i++) {
 				if (node::Buffer::HasInstance(info[i + 1])) {
-					params[i] = node::Buffer::Data(info[i + 1]->ToObject());
-					params[i + 1] = node::Buffer::Length(info[i + 1]->ToObject());
-					SaveToPersistent(i, info[i + 1]);
-					i += 2;
-				} if (info[i + 1]->IsString()) {
+					params[i] = node::Buffer::Data(info[i + 1]);
+				} else if (info[i + 1]->IsString()) {
 					Nan::Utf8String path(info[i + 1]);
-					strncpy(paths[i], *path, LKL_PATH_MAX);
+					assert(strlen(*path) <= LKL_PATH_MAX);
+					strcpy(paths[i], *path);
 					params[i] = paths[i];
 				} else {
 					params[i] = info[i + 1]->IntegerValue();
@@ -53,7 +51,7 @@ class SyscallWorker : public Nan::AsyncWorker {
 
 			if (ret < 0) {
 				v8::Local<v8::Value> argv[] = {
-					Nan::New<v8::Number>(-ret)
+					Nan::ErrnoException(-ret)
 				};
 				callback->Call(1, argv);
 			} else {
@@ -92,4 +90,38 @@ NAN_METHOD(syscall) {
 			info.GetReturnValue().Set(Nan::New<v8::Number>(ret));
 		}
 	}
+}
+
+NAN_METHOD(parseDirent64) {
+	// Args:
+	// * Buffer buffer
+	// Parses buffer (which should be a lkl_linux_dirent64*) and returns an
+	// array with the filenames it finds.
+	// Filenames are Buffers that need to be decoded by the caller.
+	char* buf = (char*) node::Buffer::Data(info[0]);
+	unsigned int length = node::Buffer::Length(info[0]);
+	v8::Local<v8::Array> result = Nan::New<v8::Array>();
+
+	unsigned int posInResult = result->Length();
+	unsigned int bpos;
+	lkl_linux_dirent64 *dir_entry;
+
+	for (bpos = 0; bpos < length;) {
+		dir_entry = (lkl_linux_dirent64 *) (buf + bpos);
+		if (
+			(strcmp(dir_entry->d_name, ".") != 0) &&
+			(strcmp(dir_entry->d_name, "..") != 0)
+		) {
+			result->Set(
+				posInResult,
+				Nan::CopyBuffer(
+					dir_entry->d_name,
+					strnlen(dir_entry->d_name, LKL_NAME_MAX)
+				).ToLocalChecked()
+			);
+			posInResult++;
+		}
+		bpos += dir_entry->d_reclen;
+	}
+	info.GetReturnValue().Set(result);
 }
