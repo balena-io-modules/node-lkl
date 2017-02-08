@@ -4,6 +4,7 @@ extern "C" {
 }
 
 #include "node_lkl.h"
+#include "async.h"
 
 NAN_METHOD(startKernel) {
 	if (info.Length() != 1) {
@@ -13,11 +14,13 @@ NAN_METHOD(startKernel) {
 
 	lkl_host_ops.print = NULL;
 	int memory = info[0]->Uint32Value();
+	init_async();
 	lkl_start_kernel(&lkl_host_ops, memory, "");
 }
 
 NAN_METHOD(haltKernel) {
 	lkl_sys_halt();
+	close_async();
 }
 
 class SyscallWorker : public Nan::AsyncWorker {

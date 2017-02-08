@@ -3,8 +3,6 @@
 #include "disk.h"
 
 NAN_MODULE_INIT(InitAll) {
-	init_async();
-
 	NAN_EXPORT(target, startKernel);
 	NAN_EXPORT(target, haltKernel);
 	NAN_EXPORT(target, mount);

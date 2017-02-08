@@ -25,6 +25,13 @@ void init_async() {
 	uv_mutex_init(&lock);
 }
 
+void close_async() {
+	uv_mutex_destroy(&lock);
+	uv_close((uv_handle_t*)async, [](uv_handle_t* handle) {
+		free(handle);
+    });
+}
+
 void run_on_default_loop(void (*fn)(void *), void *args) {
 	// This function needs to be mutex'd because uv_async_send can coalesce
 	// calls if called multiple times. This could potentially be avoided with a
