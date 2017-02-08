@@ -7,6 +7,7 @@ extern "C" {
 #include "async.h"
 
 NAN_METHOD(startKernel) {
+	// FIXME: we should prevent this from being called twice.
 	if (info.Length() != 1) {
 		Nan::ThrowTypeError("Wrong number of arguments");
 		return;
@@ -19,6 +20,7 @@ NAN_METHOD(startKernel) {
 }
 
 NAN_METHOD(haltKernel) {
+	// FIXME: we should prevent this from being called twice.
 	lkl_sys_halt();
 	close_async();
 }

@@ -1,4 +1,3 @@
-#include "async.h"
 #include "node_lkl.h"
 #include "disk.h"
 

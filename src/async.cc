@@ -2,7 +2,7 @@
 
 using namespace Nan;
 
-uv_async_t *async;
+uv_async_t *async = NULL;
 uv_mutex_t lock;
 
 struct call_info_t {
@@ -28,7 +28,7 @@ void init_async() {
 void close_async() {
 	uv_mutex_destroy(&lock);
 	uv_close((uv_handle_t*)async, [](uv_handle_t* handle) {
-		free(handle);
+		delete handle;
     });
 }
 
@@ -52,6 +52,9 @@ void run_on_default_loop(void (*fn)(void *), void *args) {
 }
 
 static NAN_METHOD(callback_wrapper) {
+	if ((async == NULL) || (uv_is_closing((uv_handle_t*)async) != 0)) {
+		return;
+	}
 	auto data = info.Data()->ToObject();
 
 	void (*fn)(NAN_METHOD_ARGS_TYPE, void *) = data->Get(0).As<v8::External>()->Value();
