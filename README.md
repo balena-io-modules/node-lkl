@@ -44,7 +44,7 @@ lkl.startKernelSync(10 * 1024 * 1024);
 
 const disk = new lkl.disk.FileDisk('data.ext4');
 
-const mountpoint = lkl.mount(disk, {filesystem: 'ext4'}, function(err, mountpoint) {
+lkl.mount(disk, {filesystem: 'ext4'}, function(err, mountpoint) {
 	if (err) {
 		console.error(err);
 		return;
@@ -53,6 +53,12 @@ const mountpoint = lkl.mount(disk, {filesystem: 'ext4'}, function(err, mountpoin
 	const file = lkl.fs.createReadStream(mountpoint + '/etc/passwd');
 
 	file.pipe(process.stdout);
+
+	file.on('close', function() {
+		lkl.umount(mountpoint, function(err, result) {
+			lkl.haltKernelSync();
+		});
+	});
 });
 ```
 
