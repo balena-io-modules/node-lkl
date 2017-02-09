@@ -10,6 +10,7 @@ const RAW_FS_PATH = path.join(__dirname, 'fixtures/test.ext4');
 const TMP_RAW_FS_PATH = path.join(__dirname, '.tmp-test.ext4');
 const DISK_PATH = path.join(__dirname, 'fixtures/disk.img');
 const ISO_FS_PATH = path.join(__dirname, 'fixtures/test.iso');
+const UDF_FS_PATH = path.join(__dirname, 'fixtures/test.udf');
 
 describe('node-lkl', function() {
 	it('should start the kernel', function() {
@@ -71,6 +72,30 @@ describe('node-lkl', function() {
 			it('should mount', function() {
 				return lkl.mountAsync(this.disk, { readOnly: true, filesystem: 'iso9660'})
 				.then(lkl.umountAsync);
+			});
+		});
+
+		describe('udf image', function() {
+			before(function() {
+				this.disk = new lkl.disk.FileDisk(UDF_FS_PATH);
+			});
+
+			it('should mount', function() {
+				let mpoint;
+				return lkl.mountAsync(this.disk, { readOnly: true, filesystem: 'udf'})
+				.then(function(mp) {
+					mpoint = mp;
+					return lkl.fs.readdirAsync(mp);
+				})
+				.then(function(files) {
+					assert.deepEqual(
+						files.sort(),
+						[ 'lost+found', '┬──┬◡ﾉ(° -°ﾉ)' ]
+					)
+				})
+				.finally(function() {
+					return lkl.umountAsync(mpoint);
+				});
 			});
 		});
 	});
