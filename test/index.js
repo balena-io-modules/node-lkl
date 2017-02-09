@@ -9,6 +9,7 @@ lkl.fs = Promise.promisifyAll(lkl.fs);
 const RAW_FS_PATH = path.join(__dirname, 'fixtures/test.ext4');
 const TMP_RAW_FS_PATH = path.join(__dirname, '.tmp-test.ext4');
 const DISK_PATH = path.join(__dirname, 'fixtures/disk.img');
+const ISO_FS_PATH = path.join(__dirname, 'fixtures/test.iso');
 
 describe('node-lkl', function() {
 	it('should start the kernel', function() {
@@ -59,6 +60,17 @@ describe('node-lkl', function() {
 			it('should mount xfs', function() {
 				return lkl.mountAsync(this.disk, {readOnly: true, filesystem: 'xfs', partition: 6})
 				.then(lkl.umountAsync)
+			});
+		});
+
+		describe('iso9660 image', function() {
+			before(function() {
+				this.disk = new lkl.disk.FileDisk(ISO_FS_PATH);
+			});
+
+			it('should mount', function() {
+				return lkl.mountAsync(this.disk, { readOnly: true, filesystem: 'iso9660'})
+				.then(lkl.umountAsync);
 			});
 		});
 	});
