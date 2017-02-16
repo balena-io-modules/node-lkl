@@ -32,5 +32,5 @@ git -C linux-tmp clean -ffxd
 rm -rf linux-tmp/.git
 
 # Vendor the code
-rm -rf src/linux
-mv linux-tmp src/linux
+rm -rf vendor/linux
+mv linux-tmp vendor/linux
