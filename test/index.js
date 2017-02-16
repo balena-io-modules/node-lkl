@@ -11,6 +11,8 @@ lkl.fs = Promise.promisifyAll(lkl.fs);
 const RAW_FS_PATH = path.join(__dirname, 'fixtures/test.ext4');
 const TMP_RAW_FS_PATH = path.join(__dirname, '.tmp-test.ext4');
 const DISK_PATH = path.join(__dirname, 'fixtures/disk.img');
+const ISO_FS_PATH = path.join(__dirname, 'fixtures/test.iso');
+const UDF_FS_PATH = path.join(__dirname, 'fixtures/test.udf');
 
 describe('node-lkl', function() {
 	it('should start the kernel', function() {
@@ -125,6 +127,57 @@ describe('node-lkl', function() {
 					})
 					return c.then(done);
 				})
+			});
+		});
+
+		describe('iso9660 image', function() {
+			before(function() {
+				this.disk = new lkl.disk.FileDisk(ISO_FS_PATH);
+			});
+
+			it('should mount', function() {
+				let diskId;
+				return lkl.diskAddAsync(this.disk)
+				.then(function(id) {
+					diskId = id;
+					return lkl.mountAsync(diskId, { readOnly: true, filesystem: 'iso9660'})
+				})
+				.then(lkl.umountAsync)
+				.then(function() {
+					return lkl.diskRemoveAsync(diskId);
+				});
+			});
+		});
+
+		describe('udf image', function() {
+			before(function() {
+				this.disk = new lkl.disk.FileDisk(UDF_FS_PATH);
+			});
+
+			it('should mount', function() {
+				let diskId;
+				let mpoint;
+				return lkl.diskAddAsync(this.disk)
+				.then(function(id) {
+					diskId = id;
+					return lkl.mountAsync(diskId, { readOnly: true, filesystem: 'udf'})
+				})
+				.then(function(mp) {
+					mpoint = mp;
+					return lkl.fs.readdirAsync(mp);
+				})
+				.then(function(files) {
+					assert.deepEqual(
+						files.sort(),
+						[ 'lost+found', '┬──┬◡ﾉ(° -°ﾉ)' ]
+					)
+				})
+				.then(function() {
+					return lkl.umountAsync(mpoint);
+				})
+				.then(function() {
+					return lkl.diskRemoveAsync(diskId);
+				});
 			});
 		});
 	});
