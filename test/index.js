@@ -281,5 +281,64 @@ describe('node-lkl', function() {
 				});
 			});
 		});
+
+		describe('.fstat()', function() {
+			it('should return a Stats object', function(done) {
+				let fd0, fd1;
+				const self = this;
+				lkl.fs.openAsync(path.join(self.mountpoint, 'petrosagg2'), constants.O_RDONLY)
+				.then(function(fd) {
+					fd0 = fd;
+					return lkl.fs.fstatAsync(fd0)
+				})
+				.then(function(stats) {
+					assert.strictEqual(stats.isFile(), true);
+					assert.strictEqual(stats.isDirectory(), false);
+					assert.strictEqual(stats.isBlockDevice(), false);
+					assert.strictEqual(stats.isCharacterDevice(), false);
+					assert.strictEqual(stats.isSymbolicLink(), false);
+					assert.strictEqual(stats.isFIFO(), false);
+					assert.strictEqual(stats.isSocket(), false);
+					assert.strictEqual(stats.mode.toString(8), '100644');
+					return lkl.fs.closeAsync(fd0);
+				})
+				.then(function() {
+					return lkl.fs.openAsync(path.join(self.mountpoint, 'lost+found'), constants.O_RDONLY)
+				})
+				.then(function(fd) {
+					fd1 = fd;
+					return lkl.fs.fstatAsync(fd1)
+				})
+				.then(function(stats) {
+					assert.strictEqual(stats.isFile(), false);
+					assert.strictEqual(stats.isDirectory(), true);
+					assert.strictEqual(stats.isBlockDevice(), false);
+					assert.strictEqual(stats.isCharacterDevice(), false);
+					assert.strictEqual(stats.isSymbolicLink(), false);
+					assert.strictEqual(stats.isFIFO(), false);
+					assert.strictEqual(stats.isSocket(), false);
+					assert.strictEqual(stats.mode.toString(8), '40700');
+					return lkl.fs.closeAsync(fd1);
+				})
+				.then(function() {
+					done();
+				})
+			});
+		});
+
+		describe('.writeFile() and .readFile()', function() {
+			it('should write and read files', function(done) {
+				const fpath = path.join(this.mountpoint, 'this_is_a_filename')
+				const content = 'some content 🗺'
+				lkl.fs.writeFileAsync(fpath, content)
+				.then(function() {
+					lkl.fs.readFileAsync(fpath, 'utf8')
+					.then(function(readContent) {
+						assert.strictEqual(content, readContent, 'should read what it has written');
+						done();
+					})
+				});
+			});
+		});
 	});
 });

@@ -130,3 +130,58 @@ NAN_METHOD(parseDirent64) {
 	}
 	info.GetReturnValue().Set(result);
 }
+
+NAN_METHOD(sizeOfStructLklStat) {
+	auto size = Nan::New<v8::Uint32>(
+		static_cast<uint32_t>(sizeof(struct lkl_stat))
+	);
+	info.GetReturnValue().Set(size);
+}
+
+v8::Local<v8::Value> castUint32(long unsigned int x) {
+	return Nan::New<v8::Uint32>(static_cast<uint32_t>(x));
+}
+
+v8::Local<v8::Value> castInt32(long int x) {
+	return Nan::New<v8::Int32>(static_cast<int32_t>(x));
+}
+
+v8::Local<v8::Value> timespecToMilliseconds(time_t seconds, long nanoseconds) {
+    return Nan::New<v8::Number>(
+        (static_cast<double>(seconds) * 1000) +
+        (static_cast<double>(nanoseconds / 1000000))
+    );
+}
+
+
+NAN_METHOD(parseLklStat) {
+	// Args:
+	// * Buffer buffer
+	// * function Stats
+	// Parses buffer (which should be a struct lkl_stat*) and returns a Stats
+	// object.
+	auto *s = reinterpret_cast<lkl_stat*>(node::Buffer::Data(info[0]));
+	auto ctim_msec = timespecToMilliseconds(s->lkl_st_ctime, s->st_ctime_nsec);
+	v8::Local<v8::Value> argv[] = {
+		castInt32(s->st_dev),
+		castInt32(s->st_mode),
+		castInt32(s->st_nlink),
+		castUint32(s->st_uid),
+		castUint32(s->st_gid),
+		castInt32(s->st_rdev),
+		castInt32(s->st_blksize),
+		castUint32(s->st_ino),
+		castUint32(s->st_size),
+		castUint32(s->st_blocks),
+		timespecToMilliseconds(s->lkl_st_atime, s->st_atime_nsec),
+		timespecToMilliseconds(s->lkl_st_mtime, s->st_mtime_nsec),
+		ctim_msec,
+		ctim_msec, // birthtim same as ctime (as in libuv)
+	};
+	auto stats = Nan::NewInstance(
+		info[1].As<v8::Function>(),
+		14,
+		argv
+	).ToLocalChecked();
+	info.GetReturnValue().Set(stats);
+}
