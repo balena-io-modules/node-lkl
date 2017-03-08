@@ -320,16 +320,33 @@ describe('node-lkl', function() {
 
 		describe('.writeFile() and .readFile()', function() {
 			it('should write and read files', function(done) {
-				const fpath = path.join(this.mountpoint, 'this_is_a_filename')
-				const content = 'some content 🗺'
+				const fpath = path.join(this.mountpoint, 'this_is_a_filename');
+				const content = 'some content 🗺';
+				let fd;
 				lkl.fs.writeFileAsync(fpath, content)
 				.then(function() {
-					lkl.fs.readFileAsync(fpath, 'utf8')
-					.then(function(readContent) {
-						assert.strictEqual(content, readContent, 'should read what it has written');
-						done();
-					})
-				});
+					return lkl.fs.readFileAsync(fpath, 'utf8');
+				})
+				.then(function(readContent) {
+					assert.strictEqual(content, readContent, 'should read what it has written');
+				})
+				.then(function() {
+					return lkl.fs.openAsync(fpath, constants.O_RDONLY);
+				})
+				.then(function(fd) {
+					fd = fd;
+					return lkl.fs.fstatAsync(fd);
+				})
+				.then(function(stats) {
+					const now = Date.now();
+					assert(now - stats.atime.getTime() < 10000, "access time is correct");
+					assert(now - stats.mtime.getTime() < 10000, "modification time is correct");
+					assert(now - stats.ctime.getTime() < 10000, "creation time is correct");
+				})
+				.then(function() {
+					return lkl.fs.closeAsync(fd);
+				})
+				.then(done);
 			});
 		});
 	});

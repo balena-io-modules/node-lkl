@@ -153,7 +153,6 @@ v8::Local<v8::Value> timespecToMilliseconds(time_t seconds, long nanoseconds) {
     );
 }
 
-
 NAN_METHOD(parseLklStat) {
 	// Args:
 	// * Buffer buffer
@@ -184,4 +183,16 @@ NAN_METHOD(parseLklStat) {
 		argv
 	).ToLocalChecked();
 	info.GetReturnValue().Set(stats);
+}
+
+NAN_METHOD(millisecondsToTimespec) {
+	auto *ts = new struct timespec;
+	auto milliseconds = info[0]->IntegerValue();
+	ts->tv_sec = milliseconds / 1000;
+	ts->tv_nsec = (milliseconds % 1000) * 1000000;
+	auto result = Nan::NewBuffer(
+		reinterpret_cast<char*>(ts),
+		sizeof *ts
+	).ToLocalChecked();
+	info.GetReturnValue().Set(result);
 }
