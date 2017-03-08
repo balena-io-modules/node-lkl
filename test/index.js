@@ -272,14 +272,6 @@ describe('node-lkl', function() {
 					done();
 				});
 			});
-
-			it('should return an error for a write access to a readonly file', function(done) {
-				fs.access(this.readOnlyFile, fs.W_OK, (err) => {
-					assert.notEqual(err, null, 'error should exist');
-					assert.strictEqual(err.path, this.readOnlyFile);
-					done();
-				});
-			});
 		});
 
 		describe('.fstat()', function() {
