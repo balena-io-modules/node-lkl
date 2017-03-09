@@ -187,3 +187,19 @@ NAN_METHOD(millisecondsToTimespec) {
 	).ToLocalChecked();
 	info.GetReturnValue().Set(result);
 }
+
+NAN_METHOD(buffersToIoVecs) {
+	auto arr = info[0].As<v8::Array>();
+	auto len = arr->Length();
+	auto *iovecs = new struct iovec[len];
+	for (unsigned int i = 0; i < len; i++) {
+		auto buf = arr->Get(i);
+		iovecs[i].iov_base = reinterpret_cast<char*>(node::Buffer::Data(buf));
+		iovecs[i].iov_len = node::Buffer::Length(buf);
+	}
+	auto result = Nan::NewBuffer(
+		reinterpret_cast<char*>(iovecs),
+		sizeof *iovecs
+	).ToLocalChecked();
+	info.GetReturnValue().Set(result);
+}

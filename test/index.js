@@ -372,5 +372,57 @@ describe('node-lkl', function() {
 				.then(done);
 			});
 		});
+
+		describe('writev', function() {
+			it('should write all buffers to file', function(done) {
+				const fpath = path.join(this.mountpoint, 'filename');
+				const stream = lkl.fs.WriteStream(fpath);
+				const chunks = [
+					{chunk: Buffer.from('1')},
+					{chunk: Buffer.from('2')},
+					{chunk: Buffer.from('3')},
+				]
+				// testing writev syscall
+				stream._writev(chunks, function(err) {
+					// testing pwritev syscall
+					stream.pos = 1;
+					stream._writev(chunks, function(err) {
+						stream.close(function(err){
+							lkl.fs.readFileAsync(fpath, 'utf8')
+							.then(function(content) {
+								assert.strictEqual(content, '1123', 'should read what it has written');
+								done();
+							})
+						})
+					});
+				});
+			});
+		});
+
+		describe('writev', function() {
+			it('should write all buffers to file', function(done) {
+				const fpath = path.join(this.mountpoint, 'filename');
+				const stream = lkl.fs.WriteStream(fpath);
+				const chunks = [
+					{chunk: Buffer.from('1')},
+					{chunk: Buffer.from('2')},
+					{chunk: Buffer.from('3')},
+				]
+				// testing writev syscall
+				stream._writev(chunks, function(err) {
+					// testing pwritev syscall
+					stream.pos = 1;
+					stream._writev(chunks, function(err) {
+						stream.close(function(err){
+							lkl.fs.readFileAsync(fpath, 'utf8')
+							.then(function(content) {
+								assert.strictEqual(content, '1123', 'should read what it has written');
+								done();
+							})
+						})
+					});
+				});
+			});
+		});
 	});
 });
