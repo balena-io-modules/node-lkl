@@ -154,6 +154,66 @@ Limitations
 
 This project can not work with an `UV_THREADPOOL_SIZE` env var smaller than `2`.
 
+
+`recordWrites` mode
+-------------------
+
+You can use the `recordWrites` `FileDisk` mode to record what would be written
+to the disk image.
+
+For example you could open an image `readOnly` and still be able to write to
+partitions. The updated disk chunks will be kept in memory. All subsequent
+reads from the device will read from the readonly image file and the recorded
+writes.
+
+You can later use the recorded writes to generate a binary patch to apply to
+the image.
+
+```js
+const Promise = require('bluebird');
+const path = require('path');
+const lkl = Promise.promisifyAll(require('lkl'));
+lkl.fs = Promise.promisifyAll(lkl.fs);
+
+let mountpoint;
+let fpath;
+
+const disk = new lkl.disk.FileDisk(
+	imagePath,
+	{ readOnly: true, recordWrites: true }
+);
+lkl.mountAsync(disk, { filesystem: 'ext4', partition: 2 })
+.then((mpoint) => {
+	mountpoint = mpoint;
+	fpath = path.join(mountpoint, 'filename');
+	return lkl.fs.writeFileAsync(fpath, 'some content');
+})
+.then(() => {
+	return lkl.fs.readFileAsync(fpath, 'utf8');
+})
+.then((fileContents) => {
+	console.log(fileContents); // should display 'some content'
+})
+.then(() => {
+	return lkl.umountAsync(mountpoint);
+})
+.then(() => {
+	console.log(disk.writes);  // ordered list of DiskWrites.
+})
+```
+
+A `DiskWrite` has 3 attributes:
+ * `start`: the offset where the write starts on the disk;
+ * `buffer`: a Buffer contaning the data that was written;
+ * `end`: the offset where the write ends (inclusive): start + buffer.length - 1
+
+Note: you can use the `recordWrites` mode without `readOnly`: the disk writes
+will be saved in memory AND written on disk.
+
+You could also use the `readOnly` mode without `recordWrites` but this would
+mean that all disk writes would be lost.
+
+
 Support
 -------
 

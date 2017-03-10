@@ -3,6 +3,7 @@
 const Promise = require('bluebird');
 const fs = Promise.promisifyAll(require('fs'));
 const path = require('path');
+const crypto = require('crypto');
 const assert = require('assert');
 const constants = require('../lib/constants');
 const lkl = Promise.promisifyAll(require('../'));
@@ -11,6 +12,30 @@ lkl.fs = Promise.promisifyAll(lkl.fs);
 const RAW_FS_PATH = path.join(__dirname, 'fixtures/test.ext4');
 const TMP_RAW_FS_PATH = path.join(__dirname, '.tmp-test.ext4');
 const DISK_PATH = path.join(__dirname, 'fixtures/disk.img');
+
+function fileMd5Async(fpath) {
+	return new Promise(function(resolve, reject) {
+		const hash = crypto.createHash('md5');
+		const stream = fs.createReadStream(fpath);
+		stream.on('data', function (data) {
+			hash.update(data, 'utf8')
+		})
+		stream.on('end', function () {
+			resolve(hash.digest('hex'));
+		})
+		stream.on('error', reject);
+	});
+}
+
+
+function copyFileAsync(from, to) {
+	return new Promise(function(resolve, reject) {
+		fs.createReadStream(from)
+		.pipe(fs.createWriteStream(to))
+		.on('close', resolve)
+		.on('error', reject);
+	})
+}
 
 describe('node-lkl', function() {
 	it('should start the kernel', function() {
@@ -92,17 +117,15 @@ describe('node-lkl', function() {
 
 		before(function(done) {
 			const self = this;
-
-			fs.createReadStream(RAW_FS_PATH)
-			.pipe(fs.createWriteStream(TMP_RAW_FS_PATH))
-			.on('close', function() {
+			return copyFileAsync(RAW_FS_PATH, TMP_RAW_FS_PATH)
+			.then(function() {
 				const disk = new lkl.disk.FileDisk(TMP_RAW_FS_PATH);
-
-				lkl.mountAsync(disk, {filesystem: 'ext4'})
-				.then(function (mountpoint) {
-					self.mountpoint = mountpoint;
-				}).nodeify(done);
-			});
+				return lkl.mountAsync(disk, {filesystem: 'ext4'});
+			})
+			.then(function (mountpoint) {
+				self.mountpoint = mountpoint;
+				done();
+			})
 		});
 
 		after(function() {
@@ -425,4 +448,114 @@ describe('node-lkl', function() {
 			});
 		});
 	});
+
+	describe('readonly mode', function() {
+		it('should persist data in memory', function(done) {
+			const content = 'some content 🗺';
+			const filename = 'filename';
+			let mountpoint;
+			let disk;
+			return copyFileAsync(RAW_FS_PATH, TMP_RAW_FS_PATH)
+			.then(function() {
+				disk = new lkl.disk.FileDisk(
+					TMP_RAW_FS_PATH,
+					{ readOnly: true, recordWrites: true }
+				);
+				return lkl.mountAsync(disk, {filesystem: 'ext4'})
+			})
+			.then(function(m) {
+				mountpoint = m;
+				const fpath = path.join(mountpoint, filename);
+				return lkl.fs.writeFileAsync(fpath, content);
+			})
+			.then(function() {
+				return lkl.umountAsync(mountpoint);
+			})
+			.then(function() {
+				return lkl.mountAsync(disk, {filesystem: 'ext4'});
+			})
+			.then(function(m) {
+				mountpoint = m;
+				const fpath = path.join(mountpoint, filename);
+				return lkl.fs.readFileAsync(fpath, 'utf8');
+			})
+			.then(function(fileContent) {
+				assert.strictEqual(content, fileContent, 'should read what it has written');
+				return lkl.umountAsync(mountpoint);
+			})
+			.then(function() {
+				return Promise.join(
+					fileMd5Async(RAW_FS_PATH),
+					fileMd5Async(TMP_RAW_FS_PATH)
+				);
+			})
+			.spread(function(originalMd5, tmpMd5) {
+				assert.strictEqual(originalMd5, tmpMd5, 'should not modify image');
+				return fs.unlinkAsync(TMP_RAW_FS_PATH);
+			})
+			.then(done);
+		})
+	})
+
+	describe('recordWrites option', function() {
+		it('should record what is written on the disk', function(done) {
+			const content = 'some content 🗺';
+			const filename = 'filename';
+			let mountpoint;
+			let disk;
+			return copyFileAsync(RAW_FS_PATH, TMP_RAW_FS_PATH)
+			.then(function() {
+				disk = new lkl.disk.FileDisk(
+					TMP_RAW_FS_PATH,
+					{ readOnly: false, recordWrites: true }
+				);
+				return lkl.mountAsync(disk, {filesystem: 'ext4'})
+			})
+			.then(function(m) {
+				mountpoint = m;
+				const fpath = path.join(mountpoint, filename);
+				return lkl.fs.writeFileAsync(fpath, content);
+			})
+			.then(function() {
+				return lkl.umountAsync(mountpoint);
+			})
+			.then(function() {
+				return lkl.mountAsync(disk, {filesystem: 'ext4'});
+			})
+			.then(function(m) {
+				mountpoint = m;
+				const fpath = path.join(mountpoint, filename);
+				return lkl.fs.readFileAsync(fpath, 'utf8');
+			})
+			.then(function(fileContent) {
+				assert.strictEqual(content, fileContent, 'should read what it has written');
+				return lkl.umountAsync(mountpoint);
+			})
+			.then(function() {
+				return Promise.map(disk.writes, function(write) {
+					const buf = Buffer.allocUnsafe(write.buffer.length);
+					return fs.readAsync(disk._fd,  buf, 0, buf.length, write.start)
+					.then(function() {
+						assert(
+							buf.equals(write.buffer),
+							'should record the same data as on disk'
+						);
+					})
+				})
+			})
+			.then(function() {
+				disk.getCapacity(function(err, size) {
+					const buf1 = Buffer.allocUnsafe(size);
+					disk.readOnly = true; // force reading from stored DiskWrites
+					disk._requestRead(0, buf1.length, buf1, function(err) {
+						fs.readFileAsync(disk._fd)
+						.then(function(buf2) {
+							assert(buf1.equals(buf2), 'should record the same data as on disk')
+							done();
+						})
+					})
+				});
+			});
+		})
+	})
 });
