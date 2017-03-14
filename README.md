@@ -36,6 +36,9 @@ Example
 Here's an example of using `node-lkl` to read a file inside a disk image of
 a ext4 partition and pipe it to `process.stdout`:
 
+If you can omit the `filesystem` options parameter, all supported filesystems
+will be tried.
+
 ``` javascript
 const Promise = require('bluebird');
 const filedisk = Promise.promisifyAll(require('file-disk'), { multiArgs: true });
