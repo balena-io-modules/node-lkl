@@ -274,11 +274,22 @@ describe('node-lkl', function() {
 				this.doesNotExist = path.join(this.mountpoint, '__this_should_not_exist');
 				this.readOnlyFile = path.join(this.mountpoint, 'read_only_file');
 				this.readWriteFile = path.join(this.mountpoint, 'read_write_file');
-
 				return Promise.all([
 					createFileWithPerms(this.readOnlyFile, 0o444),
 					createFileWithPerms(this.readWriteFile, 0o666)
 				]);
+			});
+
+			it('should be able to create 20 files at once', function(done) {
+				const fname = path.join(this.mountpoint, 'file_number_')
+				const promises = []
+				for (let i=0; i < 20; i++) {
+					promises.push(createFileWithPerms(fname + i, 0o666))
+				}
+				return Promise.all(promises)
+				.then(function() {
+					done();
+				});
 			});
 
 			it('non existent file', function(done) {
