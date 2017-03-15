@@ -2,6 +2,12 @@
 
 using namespace Nan;
 
+struct call_info_t {
+	void (*fn)(void *);
+	void *args;
+	uv_sem_t sem;
+};
+
 void init_async();
 
 void close_async();

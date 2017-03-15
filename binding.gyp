@@ -6,6 +6,7 @@
 				"src/node_lkl.cc",
 				"src/disk.cc",
 				"src/async.cc",
+				"src/worker.cc",
 				"src/bindings.cc"
 			],
 			'actions': [
