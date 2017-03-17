@@ -62,6 +62,28 @@ describe('node-lkl', function() {
 				return lkl.mountAsync(this.disk, {readOnly: true, filesystem: 'xfs', partition: 6})
 				.then(lkl.umountAsync)
 			});
+			
+			it('should be able to mount 4 partitions', function(done) {
+				const promises = [
+					lkl.mountAsync(this.disk, { readOnly: true, filesystem: 'vfat', partition: 1 }),
+					lkl.mountAsync(this.disk, { readOnly: true, filesystem: 'ext2', partition: 2 }),
+					lkl.mountAsync(this.disk, { readOnly: true, filesystem: 'ext4', partition: 3 }),
+					lkl.mountAsync(this.disk, { readOnly: true, filesystem: 'btrfs', partition: 5 }),
+				];
+				return Promise.all(promises)
+				.then(function(mountpoints) {
+					return mountpoints
+				})
+				.then(function(mountpoints) {
+					const promises = mountpoints.map(function(mountpoint) {
+						return lkl.umountAsync(mountpoint);
+					});
+					return Promise.all(promises);
+				})
+				.then(function() {
+					done();
+				});
+			});
 		});
 	});
 

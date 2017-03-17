@@ -149,6 +149,11 @@ functionality. This is how it looks like with node-lkl:
     +------------+
 ```
 
+Limitations
+-----------
+
+This project can not work with an `UV_THREADPOOL_SIZE` env var smaller than `2`.
+
 Support
 -------
 

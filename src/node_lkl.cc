@@ -80,21 +80,12 @@ NAN_METHOD(syscall) {
 		Nan::ThrowTypeError("Wrong number of arguments");
 		return;
 	}
-
-	if (info[7]->IsFunction()) {
-		Nan::Callback *callback = new Nan::Callback(info[7].As<v8::Function>());
-		Nan::AsyncQueueWorker(new SyscallWorker(info, callback));
-	} else {
-		SyscallWorker *worker = new SyscallWorker(info, NULL);
-		worker->Execute();
-		long ret = worker->ret;
-
-		if (ret < 0) {
-			Nan::ThrowError(Nan::ErrnoException(-ret));
-		} else {
-			info.GetReturnValue().Set(Nan::New<v8::Number>(ret));
-		}
+	if (!info[7]->IsFunction()) {
+		Nan::ThrowTypeError("A callback is required");
+		return;
 	}
+	Nan::Callback *callback = new Nan::Callback(info[7].As<v8::Function>());
+	Nan::AsyncQueueWorker(new SyscallWorker(info, callback));
 }
 
 NAN_METHOD(parseDirent64) {
