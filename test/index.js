@@ -62,7 +62,7 @@ describe('node-lkl', function() {
 				return lkl.mountAsync(this.disk, {readOnly: true, filesystem: 'xfs', partition: 6})
 				.then(lkl.umountAsync)
 			});
-			
+
 			it('should be able to mount 4 partitions', function(done) {
 				const promises = [
 					lkl.mountAsync(this.disk, { readOnly: true, filesystem: 'vfat', partition: 1 }),
