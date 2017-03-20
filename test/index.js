@@ -1,3 +1,5 @@
+'use strict';
+
 const Promise = require('bluebird');
 const fs = Promise.promisifyAll(require('fs'));
 const path = require('path');
@@ -260,8 +262,7 @@ describe('node-lkl', function() {
 			it('non existent file', function(done) {
 				lkl.fs.access(this.doesNotExist, function(err) {
 					assert.notEqual(err, null, 'error should exist');
-					// assert.strictEqual(err.code, 'ENOENT');
-					assert.strictEqual(err.path, this.doesNotExist);
+					assert.strictEqual(err.code, 'ENOENT');
 					done();
 				});
 			});
