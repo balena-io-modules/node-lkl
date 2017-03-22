@@ -6,3 +6,4 @@ NAN_METHOD(syscall);
 NAN_METHOD(parseDirent64);
 NAN_METHOD(sizeOfStructLklStat);
 NAN_METHOD(parseLklStat);
+NAN_METHOD(millisecondsToTimespec);
