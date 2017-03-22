@@ -62,6 +62,19 @@ describe('node-lkl', function() {
 				return lkl.mountAsync(this.disk, {readOnly: true, filesystem: 'xfs', partition: 6})
 				.then(lkl.umountAsync)
 			});
+
+			it('should be able to mount / umount 200 times', function(done) {
+				const disk = new lkl.disk.FileDisk(RAW_FS_PATH);
+				const mountThenUmount = function() {
+					return lkl.mountAsync(disk, { readOnly: true, filesystem: 'ext4' })
+					.then(lkl.umountAsync)
+				}
+				let c = mountThenUmount()
+				for(let i=0; i < 200; i++) {
+					c = c.then(mountThenUmount)
+				}
+				return c.then(done);
+			});
 		});
 	});
 
