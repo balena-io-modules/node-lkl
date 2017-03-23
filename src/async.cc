@@ -20,7 +20,8 @@ void init_async() {
 }
 
 void close_async() {
-	uv_mutex_destroy(&lock);
+	// Don't call uv_mutex_destroy(&lock); here bacause it may be locked by
+	// run_on_default_loop
 	uv_close((uv_handle_t*)async, [](uv_handle_t* handle) {
 		delete handle;
     });

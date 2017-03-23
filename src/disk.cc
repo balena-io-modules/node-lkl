@@ -3,16 +3,29 @@ extern "C" {
 	#include <lkl_host.h>
 }
 
+#include <unordered_map>
 #include <nan.h>
 #include "async.h"
 #include "worker.h"
 
 #define SECTOR_SIZE 512
 
+#define CHECK_ARGS(length) \
+	if (info.Length() != length) { \
+		ThrowTypeError("Wrong number of arguments"); \
+		return; \
+	} \
+	if (!info[length - 1]->IsFunction()) { \
+		ThrowTypeError("A callback is required"); \
+		return; \
+	}
+
 using namespace Nan;
 
 typedef struct lkl_disk lkl_disk_t;
 typedef struct lkl_blk_req lkl_blk_req_t;
+
+std::unordered_map<unsigned int, lkl_disk_t> disks;
 
 /*
  * Defines the Javascript counterparts of lkl_dev_blk_ops
@@ -137,9 +150,94 @@ struct lkl_dev_blk_ops lkl_js_disk_ops = {
 	.request = js_request_entry,
 };
 
+struct disk_add_state_t {
+	int disk_id;
+	Callback *callback;
+};
+
+static void disk_add_callback(disk_add_state_t *s) {
+	HandleScope scope;
+	if (s->disk_id < 0) {
+		v8::Local<v8::Value> argv[] = {ErrnoException(-s->disk_id)};
+		s->callback->Call(1, argv);
+	} else {
+		v8::Local<v8::Value> argv[] = { Null(), New(s->disk_id) };
+		s->callback->Call(2, argv);
+	}
+}
+
+struct disk_add_args_t {
+	lkl_disk_t disk;
+	Callback *callback;
+};
+
+void do_disk_add(disk_add_args_t *args) {
+	int disk_id = lkl_disk_add(&(args->disk));
+	disk_add_state_t s = {disk_id, args->callback};
+	disks[disk_id] = args->disk;
+	run_on_default_loop(disk_add_callback, &s);
+	delete args->callback;
+	delete args;
+}
+
+NAN_METHOD(disk_add) {
+	CHECK_ARGS(3);
+	auto js_ops = new js_ops_t;
+	js_ops->request = new Callback(info[0].As<v8::Function>());
+	js_ops->get_capacity = new Callback(info[1].As<v8::Function>());
+	Callback *callback = new Callback(info[2].As<v8::Function>());
+	lkl_disk_t disk;
+	disk.ops = &lkl_js_disk_ops;
+	disk.handle = js_ops;
+	disk_add_args_t *args = new disk_add_args_t;
+	args->disk = disk;
+	args->callback = callback;
+	run_on_worker_loop(do_disk_add, args);
+}
+
+struct disk_remove_state_t {
+	int ret;
+	Callback *callback;
+};
+
+static void disk_remove_callback(disk_remove_state_t *s) {
+	HandleScope scope;
+	v8::Local<v8::Value> argv[1];
+	if (s->ret < 0) {
+		argv[0] = ErrnoException(-s->ret);
+	} else {
+		argv[0] = Null();
+	}
+	s->callback->Call(1, argv);
+}
+
+struct disk_remove_args_t {
+	unsigned int disk_id;
+	Callback *callback;
+};
+
+void do_disk_remove(disk_remove_args_t *args) {
+	lkl_disk_t disk = disks[args->disk_id];
+	int ret = lkl_disk_remove(disk);
+	disks.erase(args->disk_id);
+	disk_remove_state_t s = {ret, args->callback};
+	run_on_default_loop(disk_remove_callback, &s);
+	delete args->callback;
+	delete args;
+}
+
+NAN_METHOD(disk_remove) {
+	CHECK_ARGS(2);
+	unsigned int disk_id = info[0]->Uint32Value();
+	Callback *callback = new Callback(info[1].As<v8::Function>());
+	disk_remove_args_t *args = new disk_remove_args_t;
+	args->disk_id = disk_id;
+	args->callback = callback;
+	run_on_worker_loop(do_disk_remove, args);
+}
+
 struct mount_state_t {
 	long ret;
-	unsigned int disk_id;
 	char* mountpoint;
 	Callback *callback;
 };
@@ -150,20 +248,16 @@ static void mount_callback(mount_state_t *s) {
 		v8::Local<v8::Value> argv[] = {ErrnoException(-s->ret)};
 		s->callback->Call(1, argv);
 	} else {
-		v8::Local<v8::Object> ret2 = New<v8::Object>();
-		Set(
-			ret2,
-			New("mountpoint").ToLocalChecked(),
+		v8::Local<v8::Value> argv[] = {
+			Null(),
 			New(s->mountpoint).ToLocalChecked()
-		);
-		Set(ret2, New("diskId").ToLocalChecked(), New(s->disk_id));
-		v8::Local<v8::Value> argv[] = { Null(), ret2 };
+		};
 		s->callback->Call(2, argv);
 	}
 }
 
 struct mount_args_t {
-	lkl_disk_t disk;
+	unsigned int disk_id;
 	bool readonly;
 	const char* fs_type;
 	unsigned int part;
@@ -172,16 +266,15 @@ struct mount_args_t {
 
 void do_mount(mount_args_t* args) {
 	char mountpoint[32];
-	unsigned int disk_id = lkl_disk_add(&(args->disk));
 	long ret = lkl_mount_dev(
-		disk_id,
+		args->disk_id,
 		args->part,
 		args->fs_type,
 		args->readonly ? LKL_MS_RDONLY : 0, NULL,
 		mountpoint,
 		sizeof(mountpoint)
 	);
-	mount_state_t s = {ret, disk_id, mountpoint, args->callback};
+	mount_state_t s = {ret, mountpoint, args->callback};
 	run_on_default_loop(mount_callback, &s);
 	delete args->fs_type;
 	delete args->callback;
@@ -189,36 +282,21 @@ void do_mount(mount_args_t* args) {
 }
 
 NAN_METHOD(mount) {
-	if (info.Length() != 6) {
-		ThrowTypeError("Wrong number of arguments");
-		return;
-	}
-	if (!info[5]->IsFunction()) {
-		Nan::ThrowTypeError("A callback is required");
-		return;
-	}
-	bool readonly = info[0]->BooleanValue();
+	CHECK_ARGS(5);
+	unsigned int disk_id = info[0]->Uint32Value();
+	bool readonly = info[1]->BooleanValue();
 
 	char *fs_type = new char[10];
-	Utf8String fs_type_(info[1]);
+	Utf8String fs_type_(info[2]);
 	strncpy(fs_type, *fs_type_, sizeof(fs_type) - 1);
 	fs_type[sizeof(fs_type) - 1] = '\0';
 
-	unsigned int part = info[2]->Uint32Value();
+	unsigned int part = info[3]->Uint32Value();
 
-	// FIXME: delete this object when the disk is unmounted
-	auto js_ops = new js_ops_t;
-	js_ops->request = new Callback(info[3].As<v8::Function>());
-	js_ops->get_capacity = new Callback(info[4].As<v8::Function>());
-
-	Callback *callback = new Callback(info[5].As<v8::Function>());
-
-	lkl_disk_t disk;
-	disk.ops = &lkl_js_disk_ops;
-	disk.handle = js_ops;
+	Callback *callback = new Callback(info[4].As<v8::Function>());
 
 	mount_args_t* args = new mount_args_t;
-	args->disk = disk;
+	args->disk_id = disk_id;
 	args->readonly = readonly;
 	args->fs_type = fs_type;
 	args->part = part;
@@ -259,14 +337,7 @@ void do_umount(umount_args_t* args) {
 }
 
 NAN_METHOD(umount) {
-	if (info.Length() != 3) {
-		ThrowTypeError("Wrong number of arguments");
-		return;
-	}
-	if (!info[2]->IsFunction()) {
-		Nan::ThrowTypeError("A callback is required");
-		return;
-	}
+	CHECK_ARGS(3);
 	unsigned int disk_id = info[0]->Uint32Value();
 	unsigned int partition = info[1]->Uint32Value();
 	Callback *callback = new Callback(info[2].As<v8::Function>());
