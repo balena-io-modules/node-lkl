@@ -23,52 +23,73 @@ describe('node-lkl', function() {
 
 	describe("disks", function() {
 		describe('raw filesystem image', function() {
-			before(function() {
-				this.disk = new lkl.disk.FileDisk(RAW_FS_PATH);
+			before(function(done) {
+				const self = this;
+				self.disk = new lkl.disk.FileDisk(RAW_FS_PATH);
+				lkl.diskAddAsync(self.disk)
+				.then(function(diskId) {
+					self.diskId = diskId;
+					done();
+				});
 			});
 
 			it('should mount', function() {
-				return lkl.mountAsync(this.disk, { readOnly: true, filesystem: 'ext4'})
-				.then(lkl.umountAsync);
+				const self = this;
+				return lkl.mountAsync(this.diskId, { readOnly: true, filesystem: 'ext4'})
+				.then(lkl.umountAsync)
+			});
+
+			after(function(){
+				return lkl.diskRemoveAsync(this.diskId);
 			});
 		});
 
 		describe('MBR disk image', function() {
-			before(function() {
-				this.disk = new lkl.disk.FileDisk(DISK_PATH);
+			before(function(done) {
+				const self = this;
+				self.disk = new lkl.disk.FileDisk(DISK_PATH);
+				lkl.diskAddAsync(self.disk)
+				.then(function(diskId) {
+					self.diskId = diskId;
+					done();
+				});
+			});
+
+			after(function(){
+				return lkl.diskRemoveAsync(this.diskId);
 			});
 
 			it('should mount vfat', function() {
-				return lkl.mountAsync(this.disk, {readOnly: true, filesystem: 'vfat', partition: 1})
+				return lkl.mountAsync(this.diskId, {readOnly: true, filesystem: 'vfat', partition: 1})
 				.then(lkl.umountAsync)
 			});
 
 			it('should mount ext2', function() {
-				return lkl.mountAsync(this.disk, {readOnly: true, filesystem: 'ext2', partition: 2})
+				return lkl.mountAsync(this.diskId, {readOnly: true, filesystem: 'ext2', partition: 2})
 				.then(lkl.umountAsync)
 			});
 
 			it('should mount ext4', function() {
-				return lkl.mountAsync(this.disk, {readOnly: true, filesystem: 'ext4', partition: 3})
+				return lkl.mountAsync(this.diskId, {readOnly: true, filesystem: 'ext4', partition: 3})
 				.then(lkl.umountAsync)
 			});
 
 			it('should mount btrfs', function() {
-				return lkl.mountAsync(this.disk, {readOnly: true, filesystem: 'btrfs', partition: 5})
+				return lkl.mountAsync(this.diskId, {readOnly: true, filesystem: 'btrfs', partition: 5})
 				.then(lkl.umountAsync)
 			});
 
 			it('should mount xfs', function() {
-				return lkl.mountAsync(this.disk, {readOnly: true, filesystem: 'xfs', partition: 6})
+				return lkl.mountAsync(this.diskId, {readOnly: true, filesystem: 'xfs', partition: 6})
 				.then(lkl.umountAsync)
 			});
 
 			it('should be able to mount 4 partitions', function(done) {
 				const promises = [
-					lkl.mountAsync(this.disk, { readOnly: true, filesystem: 'vfat', partition: 1 }),
-					lkl.mountAsync(this.disk, { readOnly: true, filesystem: 'ext2', partition: 2 }),
-					lkl.mountAsync(this.disk, { readOnly: true, filesystem: 'ext4', partition: 3 }),
-					lkl.mountAsync(this.disk, { readOnly: true, filesystem: 'btrfs', partition: 5 }),
+					lkl.mountAsync(this.diskId, { readOnly: true, filesystem: 'vfat', partition: 1 }),
+					lkl.mountAsync(this.diskId, { readOnly: true, filesystem: 'ext2', partition: 2 }),
+					lkl.mountAsync(this.diskId, { readOnly: true, filesystem: 'ext4', partition: 3 }),
+					lkl.mountAsync(this.diskId, { readOnly: true, filesystem: 'btrfs', partition: 5 }),
 				];
 				return Promise.all(promises)
 				.then(function(mountpoints) {
@@ -84,6 +105,27 @@ describe('node-lkl', function() {
 					done();
 				});
 			});
+
+			it('should be able to mount / umount 200 times', function(done) {
+				const disk = new lkl.disk.FileDisk(RAW_FS_PATH);
+				let diskId;
+				return lkl.diskAddAsync(disk)
+				.then(function(id) {
+					diskId = id;
+					const mountThenUmount = function() {
+						return lkl.mountAsync(diskId, { readOnly: true, filesystem: 'ext4' })
+						.then(lkl.umountAsync)
+					}
+					let c = mountThenUmount()
+					for(let i=0; i < 200; i++) {
+						c = c.then(mountThenUmount)
+					}
+					c = c.then(function() {
+						return lkl.diskRemoveAsync(diskId);
+					})
+					return c.then(done);
+				})
+			});
 		});
 	});
 
@@ -97,8 +139,11 @@ describe('node-lkl', function() {
 			.pipe(fs.createWriteStream(TMP_RAW_FS_PATH))
 			.on('close', function() {
 				const disk = new lkl.disk.FileDisk(TMP_RAW_FS_PATH);
-
-				lkl.mountAsync(disk, {filesystem: 'ext4'})
+				lkl.diskAddAsync(disk)
+				.then(function(diskId) {
+					self.diskId = diskId;
+					return lkl.mountAsync(diskId, {filesystem: 'ext4'})
+				})
 				.then(function (mountpoint) {
 					self.mountpoint = mountpoint;
 				}).nodeify(done);
@@ -106,7 +151,11 @@ describe('node-lkl', function() {
 		});
 
 		after(function() {
+			const self = this;
 			return lkl.umountAsync(this.mountpoint)
+			.then(function() {
+				return lkl.diskRemoveAsync(self.diskId);
+			})
 			.then(function() {
 				return fs.unlinkAsync(TMP_RAW_FS_PATH)
 			});
