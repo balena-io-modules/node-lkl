@@ -5,6 +5,7 @@ extern "C" {
 
 #include <nan.h>
 #include "async.h"
+#include "worker.h"
 
 #define SECTOR_SIZE 512
 
@@ -136,125 +137,150 @@ struct lkl_dev_blk_ops lkl_js_disk_ops = {
 	.request = js_request_entry,
 };
 
-class MountWorker : public AsyncWorker {
-	public:
-		MountWorker(NAN_METHOD_ARGS_TYPE info, Callback *callback)
-		: AsyncWorker(callback) {
-			readonly = info[0]->BooleanValue();
-
-			Utf8String fs_type_(info[1]);
-			strncpy(fs_type, *fs_type_, sizeof(fs_type) - 1);
-			fs_type[sizeof(fs_type) - 1] = '\0';
-
-			part = info[2]->Uint32Value();
-
-			// FIXME: delete this object when the disk is unmounted
-			auto js_ops = new js_ops_t;
-			js_ops->request = new Callback(info[3].As<v8::Function>());
-			js_ops->get_capacity = new Callback(info[4].As<v8::Function>());
-
-			disk.ops = &lkl_js_disk_ops;
-			disk.handle = js_ops;
-		}
-
-		~MountWorker() {}
-
-		void Execute () {
-			disk_id = lkl_disk_add(&disk);
-			ret = lkl_mount_dev(
-					disk_id,
-					part,
-					fs_type,
-					readonly ? LKL_MS_RDONLY : 0, NULL,
-					mountpoint,
-					sizeof(mountpoint)
-			);
-		}
-
-		void HandleOKCallback () {
-			HandleScope scope;
-
-			if (ret < 0) {
-				v8::Local<v8::Value> argv[] = {
-					ErrnoException(-ret)
-				};
-				callback->Call(1, argv);
-			} else {
-				v8::Local<v8::Object> ret2 = New<v8::Object>();
-				Set(ret2, New("mountpoint").ToLocalChecked(), New(mountpoint).ToLocalChecked());
-				Set(ret2, New("diskId").ToLocalChecked(), New(disk_id));
-				v8::Local<v8::Value> argv[] = { Null(), ret2 };
-				callback->Call(2, argv);
-			}
-		}
-
-	private:
-		long ret;
-		bool readonly;
-		unsigned int part;
-		char fs_type[10];
-		char mountpoint[32];
-		unsigned int disk_id;
-		lkl_disk_t disk;
+struct mount_state_t {
+	long ret;
+	unsigned int disk_id;
+	char* mountpoint;
+	Callback *callback;
 };
+
+static void mount_callback(mount_state_t *s) {
+	HandleScope scope;
+	if (s->ret < 0) {
+		v8::Local<v8::Value> argv[] = {ErrnoException(-s->ret)};
+		s->callback->Call(1, argv);
+	} else {
+		v8::Local<v8::Object> ret2 = New<v8::Object>();
+		Set(
+			ret2,
+			New("mountpoint").ToLocalChecked(),
+			New(s->mountpoint).ToLocalChecked()
+		);
+		Set(ret2, New("diskId").ToLocalChecked(), New(s->disk_id));
+		v8::Local<v8::Value> argv[] = { Null(), ret2 };
+		s->callback->Call(2, argv);
+	}
+}
+
+struct mount_args_t {
+	lkl_disk_t disk;
+	bool readonly;
+	const char* fs_type;
+	unsigned int part;
+	Callback *callback;
+};
+
+void do_mount(mount_args_t* args) {
+	char mountpoint[32];
+	unsigned int disk_id = lkl_disk_add(&(args->disk));
+	long ret = lkl_mount_dev(
+		disk_id,
+		args->part,
+		args->fs_type,
+		args->readonly ? LKL_MS_RDONLY : 0, NULL,
+		mountpoint,
+		sizeof(mountpoint)
+	);
+	mount_state_t s = {ret, disk_id, mountpoint, args->callback};
+	run_on_default_loop(mount_callback, &s);
+	delete args->fs_type;
+	delete args->callback;
+	delete args;
+}
+
+void mount_entry(NAN_METHOD_ARGS_TYPE info) {
+	bool readonly = info[0]->BooleanValue();
+
+	char *fs_type = new char[10];
+	Utf8String fs_type_(info[1]);
+	unsigned int part = info[2]->Uint32Value();
+	strncpy(fs_type, *fs_type_, sizeof(fs_type) - 1);
+	fs_type[sizeof(fs_type) - 1] = '\0';
+
+	// FIXME: delete this object when the disk is unmounted
+	auto js_ops = new js_ops_t;
+	js_ops->request = new Callback(info[3].As<v8::Function>());
+	js_ops->get_capacity = new Callback(info[4].As<v8::Function>());
+
+	Callback *callback = new Callback(info[5].As<v8::Function>());
+
+	lkl_disk_t disk;
+	disk.ops = &lkl_js_disk_ops;
+	disk.handle = js_ops;
+
+	mount_args_t* args = new mount_args_t;
+	args->disk = disk;
+	args->readonly = readonly;
+	args->fs_type = fs_type;
+	args->part = part;
+	args->callback = callback;
+
+	run_on_worker_loop(do_mount, args);
+}
 
 NAN_METHOD(mount) {
 	if (info.Length() != 6) {
 		ThrowTypeError("Wrong number of arguments");
 		return;
 	}
+	if (!info[5]->IsFunction()) {
+		Nan::ThrowTypeError("A callback is required");
+		return;
+	}
+	mount_entry(info);
+}
 
-	if (info[5]->IsFunction()) {
-		Callback *callback = new Callback(info[5].As<v8::Function>());
-		AsyncQueueWorker(new MountWorker(info, callback));
+struct umount_state_t {
+	int ret;
+	Callback *callback;
+};
+
+static void umount_callback(umount_state_t *s) {
+	HandleScope scope;
+	if (s->ret < 0) {
+		v8::Local<v8::Value> argv[] = {ErrnoException(-s->ret)};
+		s->callback->Call(1, argv);
+	} else {
+		v8::Local<v8::Value> argv[] = {Null(), New<v8::Number>(s->ret)};
+		s->callback->Call(2, argv);
 	}
 }
 
-class UmountWorker : public AsyncWorker {
-	public:
-		UmountWorker(NAN_METHOD_ARGS_TYPE info, Callback *callback)
-		: AsyncWorker(callback) {
-			disk_id = info[0]->Uint32Value();
-			partition = info[1]->Uint32Value();
-		}
-
-		~UmountWorker() {}
-
-		void Execute () {
-			lkl_sys_sync();
-			ret = lkl_umount_dev(disk_id, partition, 0, 1000);
-		}
-
-		void HandleOKCallback () {
-			HandleScope scope;
-
-			if (ret < 0) {
-				v8::Local<v8::Value> argv[] = {
-					ErrnoException(-ret)
-				};
-				callback->Call(1, argv);
-			} else {
-				v8::Local<v8::Value> argv[] = {
-					Null(),
-					New<v8::Number>(ret)
-				};
-				callback->Call(2, argv);
-			}
-		}
-	private:
-		unsigned int disk_id;
-		unsigned int partition;
-		int ret;
+struct umount_args_t {
+	unsigned int disk_id;
+	unsigned int partition;
+	Callback *callback;
 };
+
+void do_umount(umount_args_t* args) {
+	lkl_sys_sync();
+	int ret = lkl_umount_dev(args->disk_id, args->partition, 0, 1000);
+	umount_state_t s = {ret, args->callback};
+	run_on_default_loop(umount_callback, &s);
+	delete args->callback;
+	delete args;
+}
+
+
+void umount_entry(NAN_METHOD_ARGS_TYPE info) {
+	unsigned int disk_id = info[0]->Uint32Value();
+	unsigned int partition = info[1]->Uint32Value();
+	Callback *callback = new Callback(info[2].As<v8::Function>());
+	umount_args_t* args = new umount_args_t;
+	args->disk_id = disk_id;
+	args->partition = partition;
+	args->callback = callback;
+	run_on_worker_loop(do_umount, args);
+}
 
 NAN_METHOD(umount) {
 	if (info.Length() != 3) {
 		ThrowTypeError("Wrong number of arguments");
 		return;
 	}
-
-	if (info[2]->IsFunction()) {
-		Callback *callback = new Callback(info[2].As<v8::Function>());
-		AsyncQueueWorker(new UmountWorker(info, callback));
+	if (!info[2]->IsFunction()) {
+		Nan::ThrowTypeError("A callback is required");
+		return;
 	}
+	umount_entry(info);
 }

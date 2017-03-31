@@ -5,6 +5,7 @@ extern "C" {
 
 #include "node_lkl.h"
 #include "async.h"
+#include "worker.h"
 
 NAN_METHOD(startKernel) {
 	// FIXME: we should prevent this from being called twice.
@@ -16,6 +17,7 @@ NAN_METHOD(startKernel) {
 	lkl_host_ops.print = NULL;
 	int memory = info[0]->Uint32Value();
 	init_async();
+	init_worker();
 	lkl_start_kernel(&lkl_host_ops, memory, "");
 }
 
@@ -25,55 +27,75 @@ NAN_METHOD(haltKernel) {
 	close_async();
 }
 
-class SyscallWorker : public Nan::AsyncWorker {
-	public:
-		SyscallWorker(Nan::NAN_METHOD_ARGS_TYPE info, Nan::Callback *callback)
-		: Nan::AsyncWorker(callback) {
-			no = info[0]->IntegerValue();
-
-			for (int i = 0; i < 6; i++) {
-				if (node::Buffer::HasInstance(info[i + 1])) {
-					params[i] = node::Buffer::Data(info[i + 1]);
-				} else if (info[i + 1]->IsString()) {
-					Nan::Utf8String path(info[i + 1]);
-					assert(strlen(*path) <= LKL_PATH_MAX);
-					strcpy(paths[i], *path);
-					params[i] = paths[i];
-				} else {
-					params[i] = info[i + 1]->IntegerValue();
-				}
-			}
-		}
-
-		~SyscallWorker() {}
-
-		void Execute () {
-			ret = lkl_syscall(no, params);
-		}
-
-		void HandleOKCallback () {
-			Nan::HandleScope scope;
-
-			if (ret < 0) {
-				v8::Local<v8::Value> argv[] = {
-					Nan::ErrnoException(-ret)
-				};
-				callback->Call(1, argv);
-			} else {
-				v8::Local<v8::Value> argv[] = {
-					Nan::Null(),
-					Nan::New<v8::Number>(ret)
-				};
-				callback->Call(2, argv);
-			}
-		}
-
-		long ret;
-	private:
-		long no;
-		long params[6];
-		char paths[6][LKL_PATH_MAX];
+struct syscall_state_t {
+	int ret;
+	Callback *callback;
 };
+
+static void syscall_callback(syscall_state_t *s) {
+	HandleScope scope;
+	if (s->ret < 0) {
+		v8::Local<v8::Value> argv[] = {
+			ErrnoException(-s->ret)
+		};
+		s->callback->Call(1, argv);
+	} else {
+		v8::Local<v8::Value> argv[] = {
+			Null(),
+			New<v8::Number>(s->ret)
+		};
+		s->callback->Call(2, argv);
+	}
+}
+
+struct syscall_args_t {
+	long no;
+	long* params;
+	std::vector<char*> *paths;
+	Callback *callback;
+};
+
+void do_syscall(syscall_args_t* args) {
+	int ret = lkl_syscall(args->no, args->params);
+	syscall_state_t s = {ret, args->callback};
+	run_on_default_loop(syscall_callback, &s);
+	delete[] args->params;
+	for (int i = 0; i < args->paths->size(); i++) {
+		delete[] args->paths->at(i);
+	}
+	delete args->paths;
+	delete args->callback;
+	delete args;
+}
+
+void syscall_entry(NAN_METHOD_ARGS_TYPE info) {
+	long no = info[0]->IntegerValue();
+	long *params = new long[6];
+	std::vector<char*> *paths = new std::vector<char*>();
+
+	for (int i = 0; i < 6; i++) {
+		if (node::Buffer::HasInstance(info[i + 1])) {
+			params[i] = node::Buffer::Data(info[i + 1]);
+		} else if (info[i + 1]->IsString()) {
+			char* p = new char[LKL_PATH_MAX];
+			Nan::Utf8String path(info[i + 1]);
+			assert(strlen(*path) <= LKL_PATH_MAX);
+			strcpy(p, *path);
+			params[i] = p;
+			paths->push_back(p);
+		} else {
+			params[i] = info[i + 1]->IntegerValue();
+		}
+	}
+	Callback *callback = new Callback(info[7].As<v8::Function>());
+
+	syscall_args_t* args = new syscall_args_t;
+	args->no = no;
+	args->params = params;
+	args->paths = paths;
+	args->callback = callback;
+	run_on_worker_loop(do_syscall, args);
+}
 
 NAN_METHOD(syscall) {
 	if (info.Length() != 8) {
@@ -84,8 +106,7 @@ NAN_METHOD(syscall) {
 		Nan::ThrowTypeError("A callback is required");
 		return;
 	}
-	Nan::Callback *callback = new Nan::Callback(info[7].As<v8::Function>());
-	Nan::AsyncQueueWorker(new SyscallWorker(info, callback));
+	syscall_entry(info);
 }
 
 NAN_METHOD(parseDirent64) {
