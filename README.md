@@ -9,7 +9,7 @@ from NodeJS in a cross-platform way.
 Some things you can do with this module:
 
 * Read/write files in a filesystem image directly without mounting
-* Use familiar APIs, node-lkl has the exact same interface as node's `fs` module
+* Use familiar APIs, node-lkl has the exact same interface as node's `fs` module (except that only async methods work).
 * Combine lkl filesystem streams with host filesystem streams (e.g copy files)
 * Create a tar archive from a filesystem image
 
@@ -44,23 +44,71 @@ lkl.startKernelSync(10 * 1024 * 1024);
 
 const disk = new lkl.disk.FileDisk('data.ext4');
 
-lkl.mount(disk, {filesystem: 'ext4'}, function(err, mountpoint) {
+lkl.startKernelSync(10 * 1024 * 1024);
+
+const disk = new lkl.disk.FileDisk('ext4');
+
+lkl.diskAdd(disk, function(err, diskId) {
 	if (err) {
 		console.error(err);
 		return;
 	}
-
-	const file = lkl.fs.createReadStream(mountpoint + '/etc/passwd');
-
-	file.pipe(process.stdout);
-
-	file.on('close', function() {
-		lkl.umount(mountpoint, function(err, result) {
-			lkl.haltKernelSync();
+	lkl.mount(diskId, {filesystem: 'ext4'}, function(err, mountpoint) {
+		if (err) {
+			console.error(err);
+			return;
+		}
+		const file = lkl.fs.createReadStream(mountpoint + '/etc/paswd');
+		file.pipe(process.stdout);
+		file.on('close', function() {
+			lkl.umount(mountpoint, function(err, result) {
+				lkl.diskRemove(diskId, function(err) {
+					lkl.haltKernelSync();
+				});
+			});
 		});
 	});
 });
 ```
+
+The same using promises (recommended):
+
+``` javascript
+const Promise = require('bluebird');
+const lkl = Promise.promisifyAll(require('lkl'))
+lkl.fs = Promise.promisifyAll(lkl.fs);
+
+lkl.startKernelSync(10 * 1024 * 1024);
+
+const disk = new lkl.disk.FileDisk('ext4');
+let diskId
+let mountpoint
+
+lkl.diskAddAsync(disk)
+.then(function(id) {
+	diskId = id;
+	return lkl.mountAsync(diskId, {filesystem: 'ext4'});
+})
+.then(function(mpoint) {
+	mountpoint = mpoint;
+	const file = lkl.fs.createReadStream(mountpoint + '/some_file');
+	file.pipe(process.stdout);
+	return new Promise((resolve, reject) => {
+		file.on("close", resolve).on("error", reject);
+	});
+})
+.then(function() {
+	return lkl.umountAsync(mountpoint)
+})
+.then(function() {
+	return lkl.diskRemoveAsync(diskId);
+})
+.then(function() {
+	lkl.haltKernelSync();
+});
+```
+
+More examples in [tests](test/index.js).
 
 How it works
 ------------
@@ -148,11 +196,6 @@ functionality. This is how it looks like with node-lkl:
     | hard drive |
     +------------+
 ```
-
-Limitations
------------
-
-This project can not work with an `UV_THREADPOOL_SIZE` env var smaller than `2`.
 
 Support
 -------

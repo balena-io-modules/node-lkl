@@ -5,12 +5,6 @@ using namespace Nan;
 uv_async_t *async = NULL;
 uv_mutex_t lock;
 
-struct call_info_t {
-	void (*fn)(void *);
-	void *args;
-	uv_sem_t sem;
-};
-
 static void default_loop_entry(uv_async_t* handle) {
 	call_info_t *info = (call_info_t*) handle->data;
 
@@ -26,7 +20,8 @@ void init_async() {
 }
 
 void close_async() {
-	uv_mutex_destroy(&lock);
+	// Don't call uv_mutex_destroy(&lock); here bacause it may be locked by
+	// run_on_default_loop
 	uv_close((uv_handle_t*)async, [](uv_handle_t* handle) {
 		delete handle;
     });
