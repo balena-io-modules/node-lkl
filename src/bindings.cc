@@ -13,6 +13,7 @@ NAN_MODULE_INIT(InitAll) {
 	NAN_EXPORT(target, sizeOfStructLklStat);
 	NAN_EXPORT(target, parseLklStat);
 	NAN_EXPORT(target, millisecondsToTimespec);
+	NAN_EXPORT(target, buffersToIoVecs);
 }
 
 NODE_MODULE(bindings, InitAll)
