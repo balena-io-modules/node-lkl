@@ -13,14 +13,14 @@
     "prepublish": "publish-please guard"
   },
   "devDependencies": {
-    "bluebird": "^3.4.7",
     "mocha": "^2.2.5",
     "publish-please": "^2.2.0"
   },
   "dependencies": {
     "async": "^2.1.5",
     "bindings": "^1.2.1",
+    "bluebird": "3.5.0",
     "nan": "^2.5.1",
-    "resin-file-disk": "0.0.1"
+    "resin-file-disk": "0.0.9"
   }
 }

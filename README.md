@@ -37,71 +37,25 @@ Here's an example of using `node-lkl` to read a file inside a disk image of
 a ext4 partition and pipe it to `process.stdout`:
 
 ``` javascript
-const lkl = require('lkl');
-
-// Run the kernel with 10MB of memory
-lkl.startKernelSync(10 * 1024 * 1024);
-
-const disk = new lkl.disk.FileDisk('data.ext4');
-
-lkl.startKernelSync(10 * 1024 * 1024);
-
-const disk = new lkl.disk.FileDisk('ext4');
-
-lkl.diskAdd(disk, function(err, diskId) {
-	if (err) {
-		console.error(err);
-		return;
-	}
-	lkl.mount(diskId, {filesystem: 'ext4'}, function(err, mountpoint) {
-		if (err) {
-			console.error(err);
-			return;
-		}
-		const file = lkl.fs.createReadStream(mountpoint + '/etc/paswd');
-		file.pipe(process.stdout);
-		file.on('close', function() {
-			lkl.umount(mountpoint, function(err, result) {
-				lkl.diskRemove(diskId, function(err) {
-					lkl.haltKernelSync();
-				});
-			});
-		});
-	});
-});
-```
-
-The same using promises (recommended):
-
-``` javascript
 const Promise = require('bluebird');
+const filedisk = Promise.promisifyAll(require('resin-file-disk'), { multiArgs: true });
 const lkl = Promise.promisifyAll(require('lkl'))
 lkl.fs = Promise.promisifyAll(lkl.fs);
 
 lkl.startKernelSync(10 * 1024 * 1024);
 
-const disk = new lkl.disk.FileDisk('ext4');
-let diskId
-let mountpoint
-
-lkl.diskAddAsync(disk)
-.then(function(id) {
-	diskId = id;
-	return lkl.mountAsync(diskId, {filesystem: 'ext4'});
-})
-.then(function(mpoint) {
-	mountpoint = mpoint;
-	const file = lkl.fs.createReadStream(mountpoint + '/some_file');
-	file.pipe(process.stdout);
-	return new Promise((resolve, reject) => {
-		file.on("close", resolve).on("error", reject);
+Promise.using(filedisk.openFile('ext4', 'r'), function(fd) {
+	const disk = new filedisk.FileDisk(fd, true, false);
+	return Promise.using(lkl.utils.attachDisk(disk), function(diskId) {
+		const options = { filesystem: 'ext4', readOnly: true};
+		return Promise.using(lkl.utils.mountPartition(diskId, options), function(mountpoint) {
+			const file = lkl.fs.createReadStream(mountpoint + '/some_file');
+			file.pipe(process.stdout);
+			return new Promise((resolve, reject) => {
+				file.on("close", resolve).on("error", reject);
+			});
+		});
 	});
-})
-.then(function() {
-	return lkl.umountAsync(mountpoint)
-})
-.then(function() {
-	return lkl.diskRemoveAsync(diskId);
 })
 .then(function() {
 	lkl.haltKernelSync();
