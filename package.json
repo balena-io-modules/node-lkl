@@ -8,11 +8,14 @@
   "scripts": {
     "configure": "node-gyp configure",
     "build": "node-gyp build",
+	"pretest": "eslint lib test",
     "test": "mocha",
     "publish-please": "publish-please",
     "prepublish": "publish-please guard"
   },
   "devDependencies": {
+    "bluebird": "^3.4.7",
+    "eslint": "^3.19.0",
     "mocha": "^2.2.5",
     "publish-please": "^2.2.0"
   },

@@ -1,3 +1,6 @@
+/*global it describe before after*/
+/*eslint no-undef: "error"*/
+
 'use strict';
 
 const Promise = require('bluebird');
@@ -22,9 +25,9 @@ describe('node-lkl', function() {
 
 	after('stop the kernel', function() {
 		lkl.haltKernelSync();
-	})
+	});
 
-	describe("disks", function() {
+	describe('disks', function() {
 		describe('raw filesystem image', function() {
 			const self = this;
 			before(function() {
@@ -42,7 +45,7 @@ describe('node-lkl', function() {
 
 			it('should mount', function() {
 				return lkl.mountAsync(this.diskId, { readOnly: true, filesystem: 'ext4'})
-				.then(lkl.umountAsync)
+				.then(lkl.umountAsync);
 			});
 
 			after(function(){
@@ -78,27 +81,27 @@ describe('node-lkl', function() {
 
 			it('should mount vfat', function() {
 				return lkl.mountAsync(this.diskId, {readOnly: true, filesystem: 'vfat', partition: 1})
-				.then(lkl.umountAsync)
+				.then(lkl.umountAsync);
 			});
 
 			it('should mount ext2', function() {
 				return lkl.mountAsync(this.diskId, {readOnly: true, filesystem: 'ext2', partition: 2})
-				.then(lkl.umountAsync)
+				.then(lkl.umountAsync);
 			});
 
 			it('should mount ext4', function() {
 				return lkl.mountAsync(this.diskId, {readOnly: true, filesystem: 'ext4', partition: 3})
-				.then(lkl.umountAsync)
+				.then(lkl.umountAsync);
 			});
 
 			it('should mount btrfs', function() {
 				return lkl.mountAsync(this.diskId, {readOnly: true, filesystem: 'btrfs', partition: 5})
-				.then(lkl.umountAsync)
+				.then(lkl.umountAsync);
 			});
 
 			it('should mount xfs', function() {
 				return lkl.mountAsync(this.diskId, {readOnly: true, filesystem: 'xfs', partition: 6})
-				.then(lkl.umountAsync)
+				.then(lkl.umountAsync);
 			});
 
 			it('should be able to mount 4 partitions', function() {
@@ -110,14 +113,14 @@ describe('node-lkl', function() {
 				];
 				return Promise.all(promises)
 				.then(function(mountpoints) {
-					return mountpoints
+					return mountpoints;
 				})
 				.then(function(mountpoints) {
 					const promises = mountpoints.map(function(mountpoint) {
 						return lkl.umountAsync(mountpoint);
 					});
 					return Promise.all(promises);
-				})
+				});
 			});
 
 			it('should be able to mount / umount 200 times', function() {
@@ -128,7 +131,7 @@ describe('node-lkl', function() {
 						const options = { readOnly: true, filesystem: 'ext4' };
 						const mountThenUmount = function() {
 							return Promise.using(lkl.utils.mountPartition(diskId, options), function() {});
-						}
+						};
 						let c = mountThenUmount();
 						for(let i=0; i < 200; i++) {
 							c = c.then(mountThenUmount);
@@ -158,7 +161,7 @@ describe('node-lkl', function() {
 				})
 				.then(function(diskId) {
 					self.diskId = diskId;
-					return lkl.mountAsync(diskId, {filesystem: 'ext4'})
+					return lkl.mountAsync(diskId, {filesystem: 'ext4'});
 				})
 				.then(function (mountpoint) {
 					self.mountpoint = mountpoint;
@@ -176,7 +179,7 @@ describe('node-lkl', function() {
 				return fs.closeAsync(self.fd);
 			})
 			.then(function() {
-				return fs.unlinkAsync(TMP_RAW_FS_PATH)
+				return fs.unlinkAsync(TMP_RAW_FS_PATH);
 			});
 		});
 
@@ -198,13 +201,13 @@ describe('node-lkl', function() {
 
 		describe('.readdir()', function() {
 
-			const files = []
+			const files = [];
 			for (let i = 0; i < 100; i++) {
 				files.push('file' + i);
 			}
 			// Please keep the following filename one character long: it will be
 			// encoded as utf8 and invalid when read as utf16 (UCS-2).
-			files.push('x')
+			files.push('x');
 			files.sort();
 
 			function touch(path) {
@@ -212,19 +215,19 @@ describe('node-lkl', function() {
 					path,
 					constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC
 				)
-				.then(lkl.fs.closeAsync)
+				.then(lkl.fs.closeAsync);
 			}
 
 			function createFiles(path) {
 				return Promise.each(files, function(f) {
-					return touch(path + '/' + f)
-				})
+					return touch(path + '/' + f);
+				});
 			}
 
 			function deleteFiles(path) {
 				return Promise.each(files, function(f) {
-					return lkl.fs.unlinkAsync(path + '/' + f)
-				})
+					return lkl.fs.unlinkAsync(path + '/' + f);
+				});
 			}
 
 			before(function(done) {
@@ -265,7 +268,7 @@ describe('node-lkl', function() {
 			});
 
 			it('should raise an error if no path is given', function(done) {
-				lkl.fs.readdir(undefined, {}, function(err, result) {
+				lkl.fs.readdir(undefined, {}, function(err) {
 					assert.strictEqual(
 						err.message,
 						'TypeError: Path must be a string or a Buffer.'
@@ -311,10 +314,10 @@ describe('node-lkl', function() {
 				"should raise an error if it can't read filenames with the requested encoding",
 				function(done) {
 					lkl.fs.readdir(folder, 'ucs2', function(err, result) {
-					    assert.strictEqual(result, undefined);
+						assert.strictEqual(result, undefined);
 						assert.strictEqual(err.errno, 22);
 						assert.strictEqual(err.code, 'EINVAL');
-					    done();
+						done();
 					});
 				}
 			);
@@ -349,10 +352,10 @@ describe('node-lkl', function() {
 			});
 
 			it('should be able to create 20 files at once', function(done) {
-				const fname = path.join(this.mountpoint, 'file_number_')
-				const promises = []
+				const fname = path.join(this.mountpoint, 'file_number_');
+				const promises = [];
 				for (let i=0; i < 20; i++) {
-					promises.push(createFileWithPerms(fname + i, 0o666))
+					promises.push(createFileWithPerms(fname + i, 0o666));
 				}
 				return Promise.all(promises)
 				.then(function() {
@@ -383,7 +386,7 @@ describe('node-lkl', function() {
 				lkl.fs.openAsync(path.join(self.mountpoint, 'petrosagg2'), constants.O_RDONLY)
 				.then(function(fd) {
 					fd0 = fd;
-					return lkl.fs.fstatAsync(fd0)
+					return lkl.fs.fstatAsync(fd0);
 				})
 				.then(function(stats) {
 					assert.strictEqual(stats.isFile(), true);
@@ -397,11 +400,11 @@ describe('node-lkl', function() {
 					return lkl.fs.closeAsync(fd0);
 				})
 				.then(function() {
-					return lkl.fs.openAsync(path.join(self.mountpoint, 'lost+found'), constants.O_RDONLY)
+					return lkl.fs.openAsync(path.join(self.mountpoint, 'lost+found'), constants.O_RDONLY);
 				})
 				.then(function(fd) {
 					fd1 = fd;
-					return lkl.fs.fstatAsync(fd1)
+					return lkl.fs.fstatAsync(fd1);
 				})
 				.then(function(stats) {
 					assert.strictEqual(stats.isFile(), false);
@@ -416,7 +419,7 @@ describe('node-lkl', function() {
 				})
 				.then(function() {
 					done();
-				})
+				});
 			});
 		});
 
@@ -435,15 +438,15 @@ describe('node-lkl', function() {
 				.then(function() {
 					return lkl.fs.openAsync(fpath, constants.O_RDONLY);
 				})
-				.then(function(fd) {
-					fd = fd;
+				.then(function(_fd) {
+					fd = _fd;
 					return lkl.fs.fstatAsync(fd);
 				})
 				.then(function(stats) {
 					const now = Date.now();
-					assert(now - stats.atime.getTime() < 10000, "access time is correct");
-					assert(now - stats.mtime.getTime() < 10000, "modification time is correct");
-					assert(now - stats.ctime.getTime() < 10000, "creation time is correct");
+					assert(now - stats.atime.getTime() < 10000, 'access time is correct');
+					assert(now - stats.mtime.getTime() < 10000, 'modification time is correct');
+					assert(now - stats.ctime.getTime() < 10000, 'creation time is correct');
 				})
 				.then(function() {
 					return lkl.fs.closeAsync(fd);
