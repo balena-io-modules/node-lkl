@@ -7,7 +7,7 @@ const Promise = require('bluebird');
 const fs = Promise.promisifyAll(require('fs'));
 const path = require('path');
 const assert = require('assert');
-const filedisk = Promise.promisifyAll(require('resin-file-disk'), { multiArgs: true });
+const filedisk = Promise.promisifyAll(require('file-disk'), { multiArgs: true });
 
 const constants = require('../lib/constants');
 const lkl = Promise.promisifyAll(require('../'));
