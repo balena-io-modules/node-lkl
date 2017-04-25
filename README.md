@@ -62,6 +62,41 @@ Promise.using(filedisk.openFile('ext4', 'r'), function(fd) {
 });
 ```
 
+S3 Example
+----------
+
+```javascript
+const Promise = require('bluebird');
+const aws = require('aws-sdk');
+const filedisk = Promise.promisifyAll(require('resin-file-disk'));
+const lkl = Promise.promisifyAll(require('lkl'));
+
+lkl.startKernelSync(10 * 1024 * 1024);
+
+const s3 = new aws.S3('access_key', 'secret_key');
+const disk = new filedisk.S3Disk(s3, 'some-bucket', 'some-object-key');
+
+Promise.using(lkl.utils.attachDisk(disk), function(diskId) {
+	const options = { partition: 1, filesystem: 'vfat' };
+	return Promise.using(lkl.utils.mountPartition(diskId, options), function(mountpoint) {
+		doSomething(mountpoint);
+	});
+})
+.then(function() {
+	return disk.getStreamAsync();
+}
+.then(function(stream) {
+	const out = fs.createWriteStream('some-file')
+	stream.pipe(out)
+	return new Promise(function(resolve, reject) {
+		out.on('close', resolve);
+		out.on('error', reject);
+	});
+.then(function() {
+	lkl.haltKernelSync();
+});
+```
+
 More examples in [tests](test/index.js).
 
 How it works
