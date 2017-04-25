@@ -38,7 +38,7 @@ a ext4 partition and pipe it to `process.stdout`:
 
 ``` javascript
 const Promise = require('bluebird');
-const filedisk = Promise.promisifyAll(require('resin-file-disk'), { multiArgs: true });
+const filedisk = Promise.promisifyAll(require('file-disk'), { multiArgs: true });
 const lkl = Promise.promisifyAll(require('lkl'))
 lkl.fs = Promise.promisifyAll(lkl.fs);
 
@@ -68,7 +68,7 @@ S3 Example
 ```javascript
 const Promise = require('bluebird');
 const aws = require('aws-sdk');
-const filedisk = Promise.promisifyAll(require('resin-file-disk'));
+const filedisk = Promise.promisifyAll(require('file-disk'));
 const lkl = Promise.promisifyAll(require('lkl'));
 
 lkl.startKernelSync(10 * 1024 * 1024);
