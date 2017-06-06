@@ -5,6 +5,7 @@
   "author": "Petros Angelatos <petrosagg@resin.io>",
   "license": "Apache-2.0",
   "main": "index.js",
+  "homepage": "https://github.com/resin-io/node-lkl",
   "scripts": {
     "configure": "node-gyp configure",
     "build": "node-gyp build",
