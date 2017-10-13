@@ -1,0 +1,33 @@
+# appveyor file
+# http://www.appveyor.com/docs/appveyor-yml
+image:
+  - Visual Studio 2015
+
+init:
+  - git config --global core.autocrlf input
+
+cache:
+  - C:\Users\appveyor\.node-gyp
+  - '%AppData%\npm-cache'
+
+environment:
+  matrix:
+    - nodejs_version: 8
+
+install:
+  - ps: Install-Product node $env:nodejs_version x64
+  - set PATH=C:\MinGW\bin;%PATH%
+  - set PATH=C:\MinGW\msys\1.0\bin;%PATH%
+  - npm -g install npm@latest
+  - set PATH=%APPDATA%\npm;%PATH%
+  - npm install --build-from-source
+
+build: off
+
+test_script:
+  - node --version
+  - npm --version
+  - cmd: npm test
+
+deploy_script:
+  - scripts\prebuild-publish.bat

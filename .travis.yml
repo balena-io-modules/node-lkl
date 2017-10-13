@@ -10,3 +10,10 @@ addons:
     packages:
       - bc
       - g++-4.8
+deploy:
+  skip_cleanup: true
+  provider: script
+  script: scripts/prebuild-publish.sh
+  on:
+    tags: true
+    branch: master

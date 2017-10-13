@@ -16,11 +16,14 @@
     "pretest": "eslint lib test",
     "test": "mocha",
     "publish-please": "publish-please",
-    "prepublish": "publish-please guard"
+    "prepublish": "publish-please guard",
+    "install": "prebuild-install || node-gyp rebuild",
+    "prebuild": "prebuild --all --strip"
   },
   "devDependencies": {
     "eslint": "^3.19.0",
     "mocha": "^2.2.5",
+    "prebuild": "^6.2.2",
     "publish-please": "^2.2.0"
   },
   "dependencies": {
@@ -28,6 +31,7 @@
     "bindings": "^1.2.1",
     "bluebird": "3.5.0",
     "file-disk": "0.0.10",
-    "nan": "^2.5.1"
+    "nan": "^2.5.1",
+    "prebuild-install": "^2.3.0"
   }
 }
