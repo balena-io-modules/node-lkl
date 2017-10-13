@@ -15,7 +15,6 @@
     "prepublish": "publish-please guard"
   },
   "devDependencies": {
-    "bluebird": "^3.4.7",
     "eslint": "^3.19.0",
     "mocha": "^2.2.5",
     "publish-please": "^2.2.0"
