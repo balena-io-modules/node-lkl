@@ -18,7 +18,7 @@
 					'outputs': [
 						"src/linux/tools/lkl/liblkl.a"
 					],
-					'action': [ 'make', '-j4', '-C', 'src/linux/tools/lkl', 'static' ],
+					'action': [ 'make', 'KALLSYMS_EXTRA_PASS=1', '-j4', '-C', 'src/linux/tools/lkl', 'static' ],
 					'message': 'Compiling LKL kernel..'
 				}
 			],
