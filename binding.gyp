@@ -13,23 +13,23 @@
 				{
 					'action_name': "lkl_make",
 					'inputs': [
-						"src/linux/**"
+						"vendor/linux/**"
 					],
 					'outputs': [
-						"src/linux/tools/lkl/liblkl.a"
+						"vendor/linux/tools/lkl/liblkl.a"
 					],
-					'action': [ 'make', '-j4', '-C', 'src/linux/tools/lkl', 'static' ],
+					'action': [ 'make', '-j4', '-C', 'vendor/linux/tools/lkl', 'static' ],
 					'message': 'Compiling LKL kernel..'
 				}
 			],
 			"cflags_cc": [ '-fpermissive', '-Wno-pointer-arith' ],
 			"defines": [ "CONFIG_AUTO_LKL_POSIX_HOST" ],
 			"libraries": [
-				"../src/linux/tools/lkl/liblkl.a"
+				"../vendor/linux/tools/lkl/liblkl.a"
 			],
 			"include_dirs": [
 				"<!(node -e \"require('nan')\")",
-				"src/linux/tools/lkl/include"
+				"vendor/linux/tools/lkl/include"
 			]
 		}
 	]

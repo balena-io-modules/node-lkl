@@ -1,0 +1,14 @@
+diff --git a/linux-tmp/arch/lkl/defconfig b/linux-tmp/arch/lkl/defconfig
+--- a/linux-tmp/arch/lkl/defconfig
++++ b/linux-tmp/arch/lkl/defconfig
+@@ -33,6 +33,10 @@ CONFIG_XFS_FS=y
+ CONFIG_XFS_POSIX_ACL=y
+ CONFIG_BTRFS_FS=y
+ CONFIG_BTRFS_FS_POSIX_ACL=y
++CONFIG_ISO9660_FS=y
++CONFIG_JOLIET=y
++CONFIG_ZISOFS=y
++CONFIG_UDF_FS=y
+ # CONFIG_FILE_LOCKING is not set
+ # CONFIG_DNOTIFY is not set
+ # CONFIG_INOTIFY_USER is not set

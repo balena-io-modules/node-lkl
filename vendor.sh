@@ -3,6 +3,7 @@
 set -o errexit
 
 git clone https://github.com/lkl/linux.git --depth=1 --branch master linux-tmp
+git apply defconfig.patch
  
 # Reset all access times to be in the past
 find linux-tmp | xargs touch -a -d 2015-01-01
@@ -32,5 +33,5 @@ git -C linux-tmp clean -ffxd
 rm -rf linux-tmp/.git
 
 # Vendor the code
-rm -rf src/linux
-mv linux-tmp src/linux
+rm -rf vendor/linux
+mv linux-tmp vendor/linux
