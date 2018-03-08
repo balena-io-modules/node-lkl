@@ -1,0 +1,4 @@
+[submodule "linux"]
+	shallow = true
+	path = linux
+	url = https://github.com/lkl/linux.git
