@@ -1,0 +1,21 @@
+---
+npm:
+  platforms:
+    - name: linux
+      os: ubuntu
+      packages:
+        - "bc"
+      architecture: x86_64
+      node_versions:
+        - "6"
+        - "8"
+        - "10"
+    - name: linux
+      os: ubuntu
+      packages:
+        - "bc"
+      architecture: x86
+      node_versions:
+        - "6"
+        - "8"
+        - "10"
