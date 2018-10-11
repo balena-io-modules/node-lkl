@@ -1,1 +1,5 @@
-src/linux/**
+/linux-tmp
+/build
+*~
+/test
+!/src/linux/arch/lkl/kernel/vmlinux.lds.S
