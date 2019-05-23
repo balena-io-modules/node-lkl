@@ -44,7 +44,7 @@ describe('node-lkl', function() {
 			});
 
 			it('should mount', function() {
-				return lkl.mountAsync(this.diskId, { readOnly: true, filesystem: 'ext4'})
+				return lkl.mountAsync(this.diskId, { readOnly: true })
 				.then(lkl.umountAsync);
 			});
 
@@ -80,27 +80,27 @@ describe('node-lkl', function() {
 			});
 
 			it('should mount vfat', function() {
-				return lkl.mountAsync(this.diskId, {readOnly: true, filesystem: 'vfat', partition: 1})
+				return lkl.mountAsync(this.diskId, {readOnly: true, partition: 1})
 				.then(lkl.umountAsync);
 			});
 
 			it('should mount ext2', function() {
-				return lkl.mountAsync(this.diskId, {readOnly: true, filesystem: 'ext2', partition: 2})
+				return lkl.mountAsync(this.diskId, {readOnly: true, partition: 2})
 				.then(lkl.umountAsync);
 			});
 
 			it('should mount ext4', function() {
-				return lkl.mountAsync(this.diskId, {readOnly: true, filesystem: 'ext4', partition: 3})
+				return lkl.mountAsync(this.diskId, {readOnly: true, partition: 3})
 				.then(lkl.umountAsync);
 			});
 
 			it('should mount btrfs', function() {
-				return lkl.mountAsync(this.diskId, {readOnly: true, filesystem: 'btrfs', partition: 5})
+				return lkl.mountAsync(this.diskId, {readOnly: true, partition: 5})
 				.then(lkl.umountAsync);
 			});
 
 			it('should mount xfs', function() {
-				return lkl.mountAsync(this.diskId, {readOnly: true, filesystem: 'xfs', partition: 6})
+				return lkl.mountAsync(this.diskId, {readOnly: true, partition: 6})
 				.then(lkl.umountAsync);
 			});
 
@@ -161,7 +161,7 @@ describe('node-lkl', function() {
 				})
 				.then(function(diskId) {
 					self.diskId = diskId;
-					return lkl.mountAsync(diskId, {filesystem: 'ext4'});
+					return lkl.mountAsync(diskId);
 				})
 				.then(function (mountpoint) {
 					self.mountpoint = mountpoint;
