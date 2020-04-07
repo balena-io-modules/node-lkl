@@ -15,7 +15,8 @@ NAN_METHOD(startKernel) {
 	}
 
 	lkl_host_ops.print = NULL;
-	int memory = info[0]->Uint32Value();
+	auto context = info.GetIsolate()->GetCurrentContext();
+	int memory = info[0]->Uint32Value(context).ToChecked();
 	init_async();
 	init_worker();
 	lkl_start_kernel(&lkl_host_ops, memory, "");
@@ -69,7 +70,8 @@ void do_syscall(syscall_args_t* args) {
 }
 
 void syscall_entry(NAN_METHOD_ARGS_TYPE info) {
-	long no = info[0]->IntegerValue();
+	auto context = info.GetIsolate()->GetCurrentContext();
+	long no = info[0]->IntegerValue(context).ToChecked();
 	long *params = new long[6];
 	std::vector<char*> *paths = new std::vector<char*>();
 
@@ -84,7 +86,7 @@ void syscall_entry(NAN_METHOD_ARGS_TYPE info) {
 			params[i] = p;
 			paths->push_back(p);
 		} else {
-			params[i] = info[i + 1]->IntegerValue();
+			params[i] = info[i + 1]->IntegerValue(context).ToChecked();
 		}
 	}
 	Callback *callback = new Callback(info[7].As<v8::Function>());
@@ -198,8 +200,9 @@ NAN_METHOD(parseLklStat) {
 }
 
 NAN_METHOD(millisecondsToTimespec) {
+	auto context = info.GetIsolate()->GetCurrentContext();
 	auto *ts = new struct timespec;
-	auto milliseconds = info[0]->IntegerValue();
+	auto milliseconds = info[0]->IntegerValue(context).ToChecked();
 	ts->tv_sec = milliseconds / 1000;
 	ts->tv_nsec = (milliseconds % 1000) * 1000000;
 	auto result = Nan::NewBuffer(
