@@ -50,9 +50,10 @@ static NAN_METHOD(callback_wrapper) {
 	if ((async == NULL) || (uv_is_closing((uv_handle_t*)async) != 0)) {
 		return;
 	}
-	auto data = info.Data()->ToObject();
+	auto context = info.GetIsolate()->GetCurrentContext();
+	auto data = info.Data()->ToObject(context).ToLocalChecked();
 
-	void (*fn)(NAN_METHOD_ARGS_TYPE, void *) = data->Get(0).As<v8::External>()->Value();
+	void (*fn)(NAN_METHOD_ARGS_TYPE, void *) = Get(data, (uint32_t)0).ToLocalChecked().As<v8::External>()->Value();
 	auto args = data->Get(1).As<v8::External>()->Value();
 
 	if (fn && args) {
@@ -65,9 +66,10 @@ static NAN_METHOD(callback_wrapper) {
 }
 
 v8::Local<v8::Function> make_callback(void (*fn)(NAN_METHOD_ARGS_TYPE, void *), void *args) {
-    auto data = New<v8::Object>();
+	auto context = GetCurrentContext();
+	auto data = New<v8::Object>();
 	data->Set(0, New<v8::External>(fn));
 	data->Set(1, New<v8::External>(args));
 
-	return New<v8::FunctionTemplate>(callback_wrapper, data)->GetFunction();
+	return New<v8::FunctionTemplate>(callback_wrapper, data)->GetFunction(context).ToLocalChecked();
 }

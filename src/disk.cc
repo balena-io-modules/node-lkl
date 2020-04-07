@@ -56,11 +56,12 @@ struct request_state_t {
 };
 
 static void get_capacity_done(NAN_METHOD_ARGS_TYPE info, get_capacity_state_t* s) {
+	auto context = info.GetIsolate()->GetCurrentContext();
 	if (info[0]->IsNull()) {
 		s->ret = 0;
-		*(s->res) = info[1]->IntegerValue();
+		*(s->res) = info[1]->IntegerValue(context).ToChecked();
 	} else {
-		s->ret = info[0]->IntegerValue();
+		s->ret = info[0]->IntegerValue(context).ToChecked();
 		*(s->res) = 0;
 	}
 
@@ -83,7 +84,8 @@ static void request_done(NAN_METHOD_ARGS_TYPE info, request_state_t* s) {
 	if (info[0]->IsNull()) {
 		s->ret = 0;
 	} else {
-		s->ret = info[0]->IntegerValue();
+		auto context = info.GetIsolate()->GetCurrentContext();
+		s->ret = info[0]->IntegerValue(context).ToChecked();
 	}
 
 	// Unblocks the original lkl thread
@@ -228,7 +230,8 @@ void do_disk_remove(disk_remove_args_t *args) {
 
 NAN_METHOD(disk_remove) {
 	CHECK_ARGS(2);
-	unsigned int disk_id = info[0]->Uint32Value();
+	auto context = info.GetIsolate()->GetCurrentContext();
+	unsigned int disk_id = info[0]->Uint32Value(context).ToChecked();
 	Callback *callback = new Callback(info[1].As<v8::Function>());
 	disk_remove_args_t *args = new disk_remove_args_t;
 	args->disk_id = disk_id;
@@ -283,15 +286,16 @@ void do_mount(mount_args_t* args) {
 
 NAN_METHOD(mount) {
 	CHECK_ARGS(5);
-	unsigned int disk_id = info[0]->Uint32Value();
-	bool readonly = info[1]->BooleanValue();
+	auto context = info.GetIsolate()->GetCurrentContext();
+	unsigned int disk_id = info[0]->Uint32Value(context).ToChecked();
+	bool readonly = info[1]->BooleanValue(context).ToChecked();
 
 	char *fs_type = new char[10];
 	Utf8String fs_type_(info[2]);
 	strncpy(fs_type, *fs_type_, sizeof(fs_type) - 1);
 	fs_type[sizeof(fs_type) - 1] = '\0';
 
-	unsigned int part = info[3]->Uint32Value();
+	unsigned int part = info[3]->Uint32Value(context).ToChecked();
 
 	Callback *callback = new Callback(info[4].As<v8::Function>());
 
@@ -338,8 +342,9 @@ void do_umount(umount_args_t* args) {
 
 NAN_METHOD(umount) {
 	CHECK_ARGS(3);
-	unsigned int disk_id = info[0]->Uint32Value();
-	unsigned int partition = info[1]->Uint32Value();
+	auto context = info.GetIsolate()->GetCurrentContext();
+	unsigned int disk_id = info[0]->Uint32Value(context).ToChecked();
+	unsigned int partition = info[1]->Uint32Value(context).ToChecked();
 	Callback *callback = new Callback(info[2].As<v8::Function>());
 	umount_args_t* args = new umount_args_t;
 	args->disk_id = disk_id;
