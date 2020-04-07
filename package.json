@@ -1,6 +1,6 @@
 {
   "name": "lkl",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "NodeJS native bindings to the Linux Kernel Library project",
   "author": "Petros Angelatos <petrosagg@resin.io>",
   "license": "Apache-2.0",
