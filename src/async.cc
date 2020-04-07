@@ -67,7 +67,7 @@ static NAN_METHOD(callback_wrapper) {
 
 v8::Local<v8::Function> make_callback(void (*fn)(NAN_METHOD_ARGS_TYPE, void *), void *args) {
 	auto context = GetCurrentContext();
-    auto data = New<v8::Object>();
+	auto data = New<v8::Object>();
 	data->Set(0, New<v8::External>(fn));
 	data->Set(1, New<v8::External>(args));
 
